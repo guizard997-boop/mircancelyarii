@@ -80,7 +80,6 @@ class BotState(db.Model):
     draft_name = db.Column(db.String(300), default='')
     draft_image = db.Column(db.String(500), default='')
 
-
 # ==================== HELPERS ====================
 def get_cart():
     return session.get('cart', {})
@@ -108,7 +107,6 @@ ADMIN_PASSWORD = 'admin123'
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
-
 
 # ==================== BOT API ENDPOINT ====================
 @app.route('/api/products', methods=['POST'])
@@ -145,7 +143,6 @@ def api_add_product():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
 
 # ==================== LAYOUT ====================
 LAYOUT = '''
@@ -405,6 +402,33 @@ def cart():
 {"<div class='bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6'>"+items_html+"<div class='p-4 bg-gray-50 flex justify-between items-center font-extrabold'><span>Итого:</span><span class='text-xl text-brand'>"+f"{total:,.0f}"+" сом</span></div></div>" if items_html else "<div class='text-center py-12 text-gray-400'>Корзина пуста</div>"}
 </div>'''
     return page('Корзина', content)
+
+@app.route('/cart/add/<int:pid>', methods=['POST'])
+def cart_add(pid):
+    cart_data = get_cart()
+    qty = int(request.form.get('quantity', 1))
+    cart_data[str(pid)] = cart_data.get(str(pid), 0) + qty
+    session['cart'] = cart_data
+    flash('Товар добавлен в корзину', 'success')
+    return redirect(request.referrer or url_for('index'))
+
+@app.route('/cart/update/<int:pid>', methods=['POST'])
+def cart_update(pid):
+    cart_data = get_cart()
+    qty = int(request.form.get('quantity', 1))
+    if qty > 0:
+        cart_data[str(pid)] = qty
+    else:
+        cart_data.pop(str(pid), None)
+    session['cart'] = cart_data
+    return redirect(url_for('cart'))
+
+@app.route('/cart/remove/<int:pid>')
+def cart_remove(pid):
+    cart_data = get_cart()
+    cart_data.pop(str(pid), None)
+    session['cart'] = cart_data
+    return redirect(url_for('cart'))
 
 if __name__ == '__main__':
     with app.app_context():
