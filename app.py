@@ -64,16 +64,6 @@ class Setting(db.Model):
     key = db.Column(db.String(50), unique=True, nullable=False)
     value = db.Column(db.Text, default='')
 
-def get_setting(key, default=''):
-    s = Setting.query.filter_by(key=key).first()
-    return s.value if s else default
-
-def set_setting(key, value):
-    s = Setting.query.filter_by(key=key).first()
-    if s: s.value = value
-    else: db.session.add(Setting(key=key, value=value))
-    db.session.commit()
-
 class BotState(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     chat_id = db.Column(db.String(50), unique=True, nullable=False)
@@ -579,6 +569,40 @@ def admin_product_new():
             <div><label class="block text-sm font-bold mb-1">Изображение</label><input type="file" name="image" accept="image/*" class="w-full border rounded-xl p-2.5"></div>
             <div><label class="block text-sm font-bold mb-1">Описание</label><textarea name="description" class="w-full border rounded-xl p-2.5 h-24"></textarea></div>
             <button class="w-full btn-grad text-white font-bold py-3 rounded-xl">Сохранить</button>
+        </form>
+    </div>
+    ''')
+
+@app.route('/admin/product/edit/<int:pid>', methods=['GET', 'POST'])
+@admin_required
+def admin_product_edit(pid):
+    p = Product.query.get_or_404(pid)
+    if request.method == 'POST':
+        p.name = request.form.get('name')
+        p.price = float(request.form.get('price', 0))
+        p.description = request.form.get('description', '')
+        p.category_id = request.form.get('category_id', type=int)
+        
+        if 'image' in request.files:
+            file_path = save_upload(request.files['image'])
+            if file_path: p.image_url = file_path
+
+        db.session.commit()
+        flash('Товар обновлен', 'success')
+        return redirect(url_for('admin_dashboard'))
+
+    cats = Category.query.all()
+    cat_opts = ''.join(f'<option value="{c.id}" {"selected" if p.category_id==c.id else ""}>{c.name}</option>' for c in cats)
+    return page('Редактирование товара', f'''
+    <div class="max-w-xl mx-auto py-8 px-4">
+        <h1 class="text-2xl font-bold mb-6">Редактировать товар #{p.id}</h1>
+        <form method="post" enctype="multipart/form-data" class="bg-white p-6 rounded-2xl border space-y-4">
+            <div><label class="block text-sm font-bold mb-1">Название</label><input type="text" name="name" value="{p.name}" required class="w-full border rounded-xl p-2.5"></div>
+            <div><label class="block text-sm font-bold mb-1">Цена (сом)</label><input type="number" step="0.1" name="price" value="{p.price}" required class="w-full border rounded-xl p-2.5"></div>
+            <div><label class="block text-sm font-bold mb-1">Категория</label><select name="category_id" class="w-full border rounded-xl p-2.5"><option value="">Без категории</option>{cat_opts}</select></div>
+            <div><label class="block text-sm font-bold mb-1">Изображение (оставьте пустым чтобы не менять)</label><input type="file" name="image" accept="image/*" class="w-full border rounded-xl p-2.5"></div>
+            <div><label class="block text-sm font-bold mb-1">Описание</label><textarea name="description" class="w-full border rounded-xl p-2.5 h-24">{p.description or ''}</textarea></div>
+            <button class="w-full btn-grad text-white font-bold py-3 rounded-xl">Сохранить изменения</button>
         </form>
     </div>
     ''')
