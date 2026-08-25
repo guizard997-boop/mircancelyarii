@@ -1,3 +1,4 @@
+
 from flask import Flask, request, redirect, url_for, flash, session, render_template_string, send_from_directory, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -41,6 +42,14 @@ class Product(db.Model):
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     category = db.relationship('Category', backref='products')
+
+class Order(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    customer_name = db.Column(db.String(100), nullable=False)
+    customer_phone = db.Column(db.String(20), nullable=False)
+    total_price = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(50), default='Новый')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # ==================== HELPERS ====================
 def get_cart():
@@ -117,28 +126,49 @@ body{font-family:'Nunito',system-ui,sans-serif}
       <div class="text-[10px] text-gray-500 -mt-0.5 tracking-wide">КАНЦЕЛЯРИИ</div>
     </div>
   </a>
-  <a href="/catalog" class="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-xl hover:opacity-90">Каталог</a>
+  <div class="flex items-center gap-4">
+    <a href="/catalog" class="bg-brand text-white text-sm font-semibold px-4 py-2 rounded-xl hover:opacity-90">Каталог</a>
+    <a href="/cart" class="relative p-2 rounded-xl hover:bg-soft" title="Предзаказ">
+      <i class="fas fa-shopping-bag text-xl text-gray-600"></i>
+      {% if cart_count %}<span class="absolute -top-0.5 -right-0.5 bg-accent text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center">{{ cart_count }}</span>{% endif %}
+    </a>
+  </div>
 </div>
 </header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}<div class="max-w-7xl mx-auto px-4 mt-3 space-y-1">
+{% for cat,msg in messages %}
+<div class="px-4 py-2.5 rounded-xl text-sm font-medium {% if cat=='success' %}bg-green-50 text-green-700 border border-green-100{% else %}bg-blue-50 text-blue-700 border border-blue-100{% endif %}">{{ msg }}</div>
+{% endfor %}</div>{% endif %}{% endwith %}
 
 <main class="flex-1">{{ content|safe }}</main>
 
 <footer class="bg-gray-900 text-gray-400 mt-16 py-6 text-center text-xs">
-  © 2026 Мир канцелярии
+  © 2026 Мир канцелярии · Кыргызстан
 </footer>
 </body></html>
 '''
 
 def page(title, content):
-    return render_template_string(LAYOUT, title=title, content=content)
+    from flask import get_flashed_messages
+    return render_template_string(LAYOUT, title=title, content=content, cart_count=cart_count(), get_flashed_messages=get_flashed_messages)
 
 def product_card(p):
     return f'''<div class="card bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm p-3">
-<div class="aspect-square bg-gray-50 rounded-xl overflow-hidden mb-2">
-<img src="{p.image_url}" class="w-full h-full object-cover"></div>
-<h3 class="font-bold text-gray-800 text-sm line-clamp-2">{p.name}</h3>
+<a href="/product/{p.id}">
+  <div class="aspect-square bg-gray-50 rounded-xl overflow-hidden mb-2">
+    <img src="{p.image_url}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/400x400?text=Фото'">
+  </div>
+  <h3 class="font-bold text-gray-800 text-sm line-clamp-2">{p.name}</h3>
+</a>
 <p class="text-xs text-gray-400 mt-1 line-clamp-2">{p.description or ""}</p>
-<div class="font-extrabold text-brand mt-2">{p.price:,.0f} сом</div>
+<div class="flex justify-between items-center mt-3">
+  <span class="font-extrabold text-brand">{p.price:,.0f} сом</span>
+  <form action="/cart/add/{p.id}" method="post">
+    <button class="w-8 h-8 rounded-lg btn-grad text-white flex items-center justify-center"><i class="fas fa-plus text-xs"></i></button>
+  </form>
+</div>
 </div>'''
 
 # ==================== PUBLIC ROUTES ====================
@@ -158,9 +188,55 @@ def index():
 def catalog():
     return redirect(url_for('index'))
 
-# Автоматическое создание/обновление таблиц при запуске
+@app.route('/product/<int:pid>')
+def product_detail(pid):
+    p = Product.query.get_or_404(pid)
+    content = f'''<div class="max-w-4xl mx-auto px-4 py-8">
+<div class="grid md:grid-cols-2 gap-8">
+<div class="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
+<img src="{p.image_url}" class="w-full aspect-square object-cover" onerror="this.src='https://via.placeholder.com/600'"></div>
+<div>
+<h1 class="text-2xl font-extrabold mb-2">{p.name}</h1>
+<div class="text-2xl font-extrabold text-brand mb-4">{p.price:,.0f} сом</div>
+<p class="text-gray-500 mb-6">{p.description or "Описание скоро появится"}</p>
+<form action="/cart/add/{p.id}" method="post">
+<button class="btn-grad text-white font-bold px-6 py-2.5 rounded-xl">В корзину</button>
+</form></div></div></div>'''
+    return page(p.name, content)
+
+@app.route('/cart')
+def cart():
+    items_html, total = '', 0
+    for pid, qty in get_cart().items():
+        p = Product.query.get(int(pid))
+        if not p: continue
+        sub = p.price * qty; total += sub
+        items_html += f'''<div class="p-4 flex justify-between items-center border-b">
+<div><div class="font-bold">{p.name}</div><div class="text-sm text-gray-400">{p.price:,.0f} сом x {qty}</div></div>
+<div class="font-bold text-brand">{sub:,.0f} сом</div></div>'''
+    
+    content = f'''<div class="max-w-2xl mx-auto px-4 py-8">
+<h1 class="text-2xl font-extrabold mb-6">Корзина</h1>
+{"<div class='bg-white rounded-xl border mb-4'>"+items_html+"<div class='p-4 font-bold flex justify-between'><span>Итого:</span><span class='text-brand'>"+f"{total:,.0f}"+" сом</span></div></div>" if items_html else "<div class='text-center py-8 text-gray-400'>Корзина пуста</div>"}
+</div>'''
+    return page('Корзина', content)
+
+@app.route('/cart/add/<int:pid>', methods=['POST'])
+def cart_add(pid):
+    cart_data = get_cart()
+    cart_data[str(pid)] = cart_data.get(str(pid), 0) + 1
+    session['cart'] = cart_data
+    flash('Товар добавлен в корзину', 'success')
+    return redirect(request.referrer or url_for('index'))
+
+# Автоматическое пересоздание таблиц при конфликте базы данных
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception:
+        db.drop_all()
+        db.create_all()
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
