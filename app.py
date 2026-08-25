@@ -245,7 +245,7 @@ def product_card(p):
 <button class="w-9 h-9 rounded-xl btn-grad text-white flex items-center justify-center shadow-md hover:opacity-90"><i class="fas fa-plus text-xs"></i></button>
 </form></div></div></div>'''
 
-# ==================== PUBLIC ====================
+# ==================== PUBLIC ROUTES ====================
 @app.route('/')
 def index():
     products = Product.query.order_by(Product.created_at.desc()).limit(8).all()
@@ -260,7 +260,6 @@ def index():
 <div class="text-xs text-gray-400 mt-1">{cnt} товар(ов)</div></a>'''
     cards = ''.join(product_card(p) for p in products) or '<div class="col-span-full text-center py-16 text-gray-400"><i class="fas fa-box-open text-5xl mb-3"></i><p class="font-semibold text-lg">Каталог пока пуст</p><p class="text-sm">Товары появятся скоро</p></div>'
     content = f'''
-<!-- HERO -->
 <section class="hero-grad overflow-hidden">
 <div class="max-w-7xl mx-auto px-4 py-12 md:py-20 grid md:grid-cols-2 gap-8 items-center">
   <div>
@@ -284,7 +283,6 @@ def index():
 </div>
 </section>
 
-<!-- BENEFITS -->
 <div class="max-w-7xl mx-auto px-4 -mt-6 relative z-10">
 <div class="bg-white rounded-2xl shadow-lg border border-gray-100 grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-100 overflow-hidden">
   <div class="p-4 text-center"><div class="text-brand text-xl mb-1"><i class="fas fa-th"></i></div><div class="font-bold text-sm">Широкий ассортимент</div><div class="text-xs text-gray-400">Много товаров</div></div>
@@ -293,10 +291,8 @@ def index():
   <div class="p-4 text-center"><div class="text-sky-500 text-xl mb-1"><i class="fas fa-headset"></i></div><div class="font-bold text-sm">На связи</div><div class="text-xs text-gray-400">Всегда ответим</div></div>
 </div></div>
 
-<!-- CATEGORIES -->
 {"<section class='max-w-7xl mx-auto px-4 py-14'><h2 class='text-2xl font-extrabold text-center mb-2'>Популярные категории</h2><div class='w-16 h-1 bg-brand mx-auto rounded mb-8'></div><div class='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-"+str(min(len(cats),6))+" gap-4'>"+cat_html+"</div></section>" if cats else ""}
 
-<!-- PRODUCTS -->
 <section class="max-w-7xl mx-auto px-4 py-8">
 <div class="flex justify-between items-end mb-6">
   <div><h2 class="text-2xl font-extrabold">Товары</h2><p class="text-gray-400 text-sm">Выберите и оставьте предзаказ</p></div>
@@ -451,7 +447,7 @@ def checkout():
     flash('Предзаказ успешно оформлен! Мы свяжемся с вами.', 'success')
     return redirect(url_for('index'))
 
-# ==================== ADMIN ====================
+# ==================== FULL ADMIN PANEL ====================
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
@@ -459,27 +455,172 @@ def admin_login():
             session['admin'] = True
             return redirect(url_for('admin_dashboard'))
         flash('Неверный пароль', 'danger')
-    return render_template_string('''<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"></script></head>
-<body class="bg-gray-100 flex items-center justify-center h-screen"><form method="post" class="bg-white p-6 rounded-xl shadow-md space-y-4">
-<h2 class="font-bold text-xl">Вход в админку</h2><input type="password" name="password" placeholder="Пароль" class="border p-2 rounded w-full">
-<button class="bg-indigo-600 text-white p-2 rounded w-full font-bold">Войти</button></form></body></html>''')
+    return page('Вход в админку', '''
+    <div class="max-w-md mx-auto my-16 p-6 bg-white rounded-2xl border shadow-sm">
+        <h2 class="text-xl font-bold mb-4 text-center">Панель управления</h2>
+        <form method="post" class="space-y-4">
+            <input type="password" name="password" placeholder="Пароль администратора" class="w-full border p-3 rounded-xl">
+            <button class="w-full btn-grad text-white font-bold p-3 rounded-xl">Войти</button>
+        </form>
+    </div>
+    ''')
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin', None)
+    return redirect(url_for('index'))
 
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
     products = Product.query.order_by(Product.id.desc()).all()
     orders = Order.query.order_by(Order.id.desc()).all()
-    cats = Category.query.all()
+    categories = Category.query.all()
     
-    prod_rows = ''.join(f'<tr><td class="p-2 border">{p.id}</td><td class="p-2 border">{p.name}</td><td class="p-2 border">{p.price} сом</td><td class="p-2 border"><a href="/admin/product/delete/{p.id}" class="text-red-500">Удалить</a></td></tr>' for p in products)
-    
-    return page('Админка', f'''<div class="max-w-7xl mx-auto px-4 py-8">
-<h1 class="text-2xl font-bold mb-6">Админ-панель</h1>
-<div class="mb-8"><h2 class="text-lg font-bold mb-2">Товары</h2>
-<table class="w-full bg-white border"><thead><tr><th class="p-2 border">ID</th><th class="p-2 border">Название</th><th class="p-2 border">Цена</th><th class="p-2 border">Действие</th></tr></thead><tbody>{prod_rows}</tbody></table></div>
-</div>''')
+    prod_rows = ''.join([f'''
+    <tr class="border-b">
+        <td class="p-3"><img src="{p.image_url}" class="w-12 h-12 object-cover rounded-lg"></td>
+        <td class="p-3 font-bold">{p.name}</td>
+        <td class="p-3">{p.category.name if p.category else 'Без категории'}</td>
+        <td class="p-3 text-brand font-bold">{p.price:,.0f} сом</td>
+        <td class="p-3">
+            <a href="/admin/product/edit/{p.id}" class="text-blue-600 mr-2"><i class="fas fa-edit"></i></a>
+            <a href="/admin/product/delete/{p.id}" onclick="return confirm('Удалить?')" class="text-red-500"><i class="fas fa-trash"></i></a>
+        </td>
+    </tr>''' for p in products]) or '<tr><td colspan="5" class="p-4 text-center text-gray-400">Товаров нет</td></tr>'
 
-# Инициализация структуры таблиц без сброса БД
+    cat_rows = ''.join([f'''
+    <tr class="border-b">
+        <td class="p-3">{c.name}</td>
+        <td class="p-3 text-right">
+            <a href="/admin/category/delete/{c.id}" onclick="return confirm('Удалить категорию?')" class="text-red-500"><i class="fas fa-trash"></i></a>
+        </td>
+    </tr>''' for c in categories]) or '<tr><td colspan="2" class="p-4 text-center text-gray-400">Категорий нет</td></tr>'
+
+    order_rows = ''.join([f'''
+    <tr class="border-b">
+        <td class="p-3 font-bold">#{o.id}</td>
+        <td class="p-3">{o.customer_name}<br><span class="text-xs text-gray-400">{o.customer_phone}</span></td>
+        <td class="p-3 font-bold text-brand">{o.total_price:,.0f} сом</td>
+        <td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800">{o.status}</span></td>
+        <td class="p-3"><a href="/admin/order/delete/{o.id}" class="text-red-500"><i class="fas fa-trash"></i></a></td>
+    </tr>''' for o in orders]) or '<tr><td colspan="5" class="p-4 text-center text-gray-400">Заказов нет</td></tr>'
+
+    content = f'''
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-extrabold">Админ-панель</h1>
+            <div class="flex gap-3">
+                <a href="/admin/product/new" class="btn-grad text-white px-4 py-2 rounded-xl font-bold text-sm">+ Добавить товар</a>
+                <a href="/admin/logout" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-xl text-sm font-semibold">Выйти</a>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Товары -->
+                <div class="bg-white rounded-2xl border p-5 shadow-sm">
+                    <h2 class="text-lg font-bold mb-4">Все товары ({len(products)})</h2>
+                    <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="border-b bg-gray-50"><th class="p-3">Фото</th><th class="p-3">Название</th><th class="p-3">Категория</th><th class="p-3">Цена</th><th class="p-3">Действия</th></tr></thead><tbody>{prod_rows}</tbody></table></div>
+                </div>
+
+                <!-- Заказы -->
+                <div class="bg-white rounded-2xl border p-5 shadow-sm">
+                    <h2 class="text-lg font-bold mb-4">Предзаказы ({len(orders)})</h2>
+                    <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="border-b bg-gray-50"><th class="p-3">ID</th><th class="p-3">Клиент</th><th class="p-3">Сумма</th><th class="p-3">Статус</th><th class="p-3">Удалить</th></tr></thead><tbody>{order_rows}</tbody></table></div>
+                </div>
+            </div>
+
+            <!-- Боковая колонка (Категории) -->
+            <div class="space-y-6">
+                <div class="bg-white rounded-2xl border p-5 shadow-sm">
+                    <h2 class="text-lg font-bold mb-4">Категории</h2>
+                    <form action="/admin/category/new" method="post" class="flex gap-2 mb-4">
+                        <input type="text" name="name" required placeholder="Новая категория" class="flex-1 border px-3 py-1.5 rounded-xl text-sm">
+                        <button class="bg-brand text-white px-3 py-1.5 rounded-xl text-sm font-bold">+</button>
+                    </form>
+                    <table class="w-full text-left text-sm"><tbody>{cat_rows}</tbody></table>
+                </div>
+            </div>
+        </div>
+    </div>
+    '''
+    return page('Админка', content)
+
+@app.route('/admin/product/new', methods=['GET', 'POST'])
+@admin_required
+def admin_product_new():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        price = float(request.form.get('price', 0))
+        description = request.form.get('description', '')
+        category_id = request.form.get('category_id', type=int)
+        
+        image_url = 'https://via.placeholder.com/400x300?text=Product'
+        if 'image' in request.files:
+            file_path = save_upload(request.files['image'])
+            if file_path: image_url = file_path
+
+        p = Product(name=name, price=price, description=description, category_id=category_id, image_url=image_url)
+        db.session.add(p)
+        db.session.commit()
+        flash('Товар добавлен', 'success')
+        return redirect(url_for('admin_dashboard'))
+
+    cats = Category.query.all()
+    cat_opts = ''.join(f'<option value="{c.id}">{c.name}</option>' for c in cats)
+    return page('Новый товар', f'''
+    <div class="max-w-xl mx-auto py-8 px-4">
+        <h1 class="text-2xl font-bold mb-6">Добавить новый товар</h1>
+        <form method="post" enctype="multipart/form-data" class="bg-white p-6 rounded-2xl border space-y-4">
+            <div><label class="block text-sm font-bold mb-1">Название</label><input type="text" name="name" required class="w-full border rounded-xl p-2.5"></div>
+            <div><label class="block text-sm font-bold mb-1">Цена (сом)</label><input type="number" step="0.1" name="price" required class="w-full border rounded-xl p-2.5"></div>
+            <div><label class="block text-sm font-bold mb-1">Категория</label><select name="category_id" class="w-full border rounded-xl p-2.5"><option value="">Без категории</option>{cat_opts}</select></div>
+            <div><label class="block text-sm font-bold mb-1">Изображение</label><input type="file" name="image" accept="image/*" class="w-full border rounded-xl p-2.5"></div>
+            <div><label class="block text-sm font-bold mb-1">Описание</label><textarea name="description" class="w-full border rounded-xl p-2.5 h-24"></textarea></div>
+            <button class="w-full btn-grad text-white font-bold py-3 rounded-xl">Сохранить</button>
+        </form>
+    </div>
+    ''')
+
+@app.route('/admin/product/delete/<int:pid>')
+@admin_required
+def admin_product_delete(pid):
+    p = Product.query.get_or_404(pid)
+    db.session.delete(p)
+    db.session.commit()
+    flash('Товар удален', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/category/new', methods=['POST'])
+@admin_required
+def admin_category_new():
+    name = request.form.get('name')
+    if name:
+        db.session.add(Category(name=name))
+        db.session.commit()
+        flash('Категория добавлена', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/category/delete/<int:cid>')
+@admin_required
+def admin_category_delete(cid):
+    c = Category.query.get_or_404(cid)
+    db.session.delete(c)
+    db.session.commit()
+    flash('Категория удалена', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/order/delete/<int:oid>')
+@admin_required
+def admin_order_delete(oid):
+    o = Order.query.get_or_404(oid)
+    db.session.delete(o)
+    db.session.commit()
+    flash('Заказ удален', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+# Автоматическое создание таблиц
 with app.app_context():
     db.create_all()
 
