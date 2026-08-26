@@ -130,14 +130,16 @@ LAYOUT = '''<!DOCTYPE html>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
 body{font-family:'Nunito',system-ui,sans-serif}.btn-g{background:linear-gradient(135deg,#6C5CE7,#A66CFF)}
-.btn-o{background:linear-gradient(135deg,#FF6B35,#FF8F66)}</style>
+.btn-o{background:linear-gradient(135deg,#FF6B35,#FF8F66)}
+::-webkit-scrollbar{height:6px}::-webkit-scrollbar-thumb{background:#e5e0ff;border-radius:99px}</style>
 </head><body class="bg-white min-h-screen flex flex-col">
 <header class="sticky top-0 z-50 bg-white border-b shadow-sm">
 <div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
 <a href="/" class="font-extrabold text-brand text-lg">МИР КАНЦЕЛЯРИИ</a>
 <a href="/catalog" class="text-sm bg-brand text-white px-3 py-1.5 rounded-xl font-semibold">Каталог</a>
-<form action="/catalog" method="get" class="flex-1 max-w-md">
-<input name="q" value="{{ request.args.get('q','') }}" placeholder="Поиск..." class="w-full border rounded-full px-4 py-2 text-sm">
+<form action="/catalog" method="get" class="flex-1 max-w-md relative">
+<i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+<input name="q" value="{{ request.args.get('q','') }}" placeholder="Поиск..." class="w-full border rounded-full pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30">
 </form>
 <a href="/cart" class="relative p-2"><i class="fas fa-shopping-bag text-xl"></i>
 {% if cart_count %}<span class="absolute -top-1 -right-1 bg-accent text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{{ cart_count }}</span>{% endif %}
@@ -155,9 +157,9 @@ def page(title, content):
 
 def product_card(p):
     img = p.image_url or 'https://via.placeholder.com/400'
-    return f'''<div class="bg-white rounded-2xl border overflow-hidden shadow-sm">
+    return f'''<div class="bg-white rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow">
 <a href="/product/{p.id}"><img src="{img}" class="w-full aspect-square object-cover bg-gray-50" onerror="this.src='https://via.placeholder.com/400'"></a>
-<div class="p-3"><a href="/product/{p.id}" class="font-bold text-sm hover:text-brand">{p.name}</a>
+<div class="p-3"><a href="/product/{p.id}" class="font-bold text-sm hover:text-brand line-clamp-2">{p.name}</a>
 <div class="flex justify-between items-center mt-2">
 <span class="font-extrabold text-brand">{p.price:,.0f} сом</span>
 <form action="/cart/add/{p.id}" method="post"><button class="w-8 h-8 rounded-xl btn-g text-white text-xs"><i class="fas fa-plus"></i></button></form>
@@ -177,13 +179,46 @@ def index():
 @app.route('/catalog')
 def catalog():
     q = request.args.get('q', '').strip()
+    cat_id = request.args.get('category', type=int)
+
     query = Product.query
     if q:
-        query = query.filter(Product.name.ilike(f'%{q}%'))
+        # каждое слово запроса должно встречаться в названии или описании товара
+        for word in [w for w in q.split() if w]:
+            like = f'%{word}%'
+            query = query.filter(db.or_(Product.name.ilike(like), Product.description.ilike(like)))
+    if cat_id:
+        query = query.filter(Product.category_id == cat_id)
     products = query.order_by(Product.created_at.desc()).all()
+
+    categories = Category.query.order_by(Category.name).all()
+
+    def pill(cid, label):
+        active = (cid == cat_id) if cid else (cat_id is None)
+        cls = 'btn-g text-white' if active else 'bg-soft text-gray-600 hover:bg-gray-100'
+        params = []
+        if q:
+            params.append(f'q={q}')
+        if cid:
+            params.append(f'category={cid}')
+        href = '/catalog' + ('?' + '&'.join(params) if params else '')
+        return f'<a href="{href}" class="px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap {cls}">{label}</a>'
+
+    pills = pill(None, 'Все') + ''.join(pill(c.id, c.name) for c in categories)
+
+    cat_hidden = f'<input type="hidden" name="category" value="{cat_id}">' if cat_id else ''
     cards = ''.join(product_card(p) for p in products) or '<p class="col-span-full text-center text-gray-400 py-12">Ничего не найдено</p>'
+
     content = f'''<div class="max-w-6xl mx-auto px-4 py-8">
-<form method="get" class="mb-6"><input name="q" value="{q}" placeholder="Поиск..." class="w-full max-w-md border rounded-full px-4 py-2"></form>
+<form method="get" class="mb-5 flex gap-2">
+<div class="relative flex-1 max-w-md">
+<i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+<input name="q" value="{q}" placeholder="Поиск по каталогу..." class="w-full border rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30">
+</div>
+{cat_hidden}
+<button class="btn-g text-white font-semibold px-5 rounded-full text-sm">Найти</button>
+</form>
+<div class="flex gap-2 overflow-x-auto pb-1 mb-6">{pills}</div>
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">{cards}</div></div>'''
     return page('Каталог', content)
 
