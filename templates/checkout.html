@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Оформление — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:420px">
+  <h1 class="section-title mb-2">Оформление</h1>
+  <p class="muted mb-4">Итого: <b style="color:var(--brand-dark)">{{ '{:,.0f}'.format(total).replace(',', ' ') }} сом</b> · Без доставки</p>
+  <form method="post" class="panel" style="display:flex;flex-direction:column;gap:12px">
+    <div>
+      <label>Имя</label>
+      <input name="name" required placeholder="Как к вам обращаться">
+    </div>
+    <div>
+      <label>Телефон</label>
+      <input name="phone" required placeholder="+996 ..." inputmode="tel">
+    </div>
+    <div>
+      <label>Комментарий</label>
+      <textarea name="comment" rows="2" placeholder="Необязательно"></textarea>
+    </div>
+    <button class="btn btn-pink w-full" type="submit">Отправить заявку</button>
+  </form>
+</div>
+{% endblock %}

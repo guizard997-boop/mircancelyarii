@@ -1,0 +1,13 @@
+<a href="{{ url_for('product_detail', pid=p.id) }}" class="prod-card">
+  <div class="prod-img">
+    <img src="{{ p.image_url or 'https://placehold.co/400x400/f5f3ff/7c3aed?text=+' }}" alt="{{ p.name }}" loading="lazy"
+         onerror="this.src='https://placehold.co/400x400/f5f3ff/7c3aed?text=+'">
+    <span class="prod-heart">♥</span>
+  </div>
+  <div class="prod-body">
+    <div class="prod-name">{{ p.name }}</div>
+    <div class="prod-price">
+      <span class="prod-price-now">{{ '{:,.0f}'.format(p.price).replace(',', ' ') }} сом</span>
+    </div>
+  </div>
+</a>

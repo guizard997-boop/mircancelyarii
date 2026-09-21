@@ -1,0 +1,15 @@
+{% extends "admin_base.html" %}
+{% block title %}Админ — {{ site_name }}{% endblock %}
+{% block admin %}
+<h1 class="section-title mb-4">Дашборд</h1>
+<div class="grid-stats">
+  <div class="stat-card"><div class="stat-label">Товары</div><div class="stat-value">{{ stats.products }}</div></div>
+  <div class="stat-card"><div class="stat-label">Новые заявки</div><div class="stat-value amber">{{ stats.new_orders }}</div></div>
+  <div class="stat-card"><div class="stat-label">Всего заявок</div><div class="stat-value">{{ stats.orders }}</div></div>
+  <div class="stat-card"><div class="stat-label">Открытые долги</div><div class="stat-value red">{{ '{:,.0f}'.format(stats.debts).replace(',', ' ') }}</div></div>
+</div>
+<div class="flex gap-2 flex-wrap">
+  <a href="{{ url_for('admin_product_form') }}" class="btn btn-sm">+ Товар</a>
+  <a href="{{ url_for('admin_debt_add') }}" class="btn btn-sm btn-pink">+ Долг</a>
+</div>
+{% endblock %}

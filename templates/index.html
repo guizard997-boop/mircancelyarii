@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Главная — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <p class="hero-script script">Твое вдохновение <span>♥</span></p>
+      <h1 class="hero-title">Мир Канцелярии</h1>
+      <p class="hero-sub">Стильные канцтовары для учёбы, работы и твоих больших идей</p>
+      <a href="{{ url_for('catalog') }}" class="btn">Перейти в каталог →</a>
+      <div class="hero-features">
+        <span class="hero-feat">📦 Предзаказ по Кыргызстану</span>
+        <span class="hero-feat">✨ Только оригинальная продукция</span>
+        <span class="hero-feat">💬 Связь по телефону</span>
+      </div>
+    </div>
+    <div class="hero-visual">✏️📓🎀</div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">Популярные категории</h2>
+    <a href="{{ url_for('catalog') }}" class="section-link">Смотреть всё →</a>
+  </div>
+  <div class="cat-grid">
+    {% set icons = ['✏️','📓','🎒','🎨','📎','🏫','🖊️','📐'] %}
+    {% for c in categories[:6] %}
+    <a href="{{ url_for('catalog', category=c.id) }}" class="cat-card">
+      <div class="cat-icon">{{ icons[loop.index0 % icons|length] }}</div>
+      <div class="cat-name">{{ c.name }}</div>
+    </a>
+    {% else %}
+    <p class="muted">Категории появятся после запуска</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section" style="padding-top:0">
+  <div class="banner-pre">
+    <div>
+      <h3>Предзаказ по Кыргызстану</h3>
+      <p>Любимые товары — даже если их нет в наличии! Оставьте заявку — мы свяжемся с вами.</p>
+    </div>
+    <a href="{{ url_for('catalog') }}" class="btn btn-sm">Узнать подробнее →</a>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">🔥 Хиты продаж</h2>
+    <a href="{{ url_for('catalog') }}" class="section-link">Смотреть всё →</a>
+  </div>
+  <div class="prod-grid">
+    {% for p in products %}
+    {% include "partials/product_card.html" %}
+    {% else %}
+    <p class="muted" style="grid-column:1/-1;text-align:center;padding:48px 0">Каталог пока пуст — скоро добавим хиты</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

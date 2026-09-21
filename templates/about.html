@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}О нас — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:640px">
+  <h1 class="section-title mb-4">О нас</h1>
+  <div class="panel">
+    <p class="script" style="font-size:28px;color:var(--brand);margin:0 0 12px">Мир Канцелярии</p>
+    <p style="line-height:1.7;color:rgba(46,16,101,0.75)">
+      Стильные канцтовары для учёбы, работы и творчества. Работаем по предзаказу по всему Кыргызстану —
+      оставьте заявку на сайте, и мы свяжемся с вами.
+    </p>
+    {% if phone %}<p style="margin-top:16px"><a href="tel:{{ phone }}" class="btn btn-sm">{{ phone }}</a></p>{% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Спасибо — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="container text-center" style="max-width:420px;padding-top:64px">
+  <div style="font-size:56px;margin-bottom:12px">✅</div>
+  <h1 class="section-title mb-2">Заявка #{{ order.id }} принята</h1>
+  <p class="muted mb-4">Мы свяжемся с вами по телефону <b>{{ order.customer_phone }}</b></p>
+  <a href="{{ url_for('catalog') }}" class="btn">В каталог</a>
+</div>
+{% endblock %}

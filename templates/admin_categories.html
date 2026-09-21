@@ -1,0 +1,18 @@
+{% extends "admin_base.html" %}
+{% block title %}Категории{% endblock %}
+{% block admin %}
+<h1 class="section-title mb-4">Категории</h1>
+<form method="post" class="flex gap-2 mb-4" style="max-width:400px">
+  <input name="name" required placeholder="Новая категория">
+  <button class="btn btn-sm" type="submit">+</button>
+</form>
+<div class="panel">
+  {% for c in categories %}
+  <div class="flex justify-between items-center" style="padding:10px 0;border-bottom:1px solid #F3E8FF">
+    <span style="font-weight:600;font-size:14px">{{ c.name }}</span>
+  </div>
+  {% else %}
+  <p class="muted text-center">Пусто</p>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Каталог — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="section-title" style="margin-bottom:16px">Каталог</h1>
+  <form action="{{ url_for('catalog') }}" method="get" class="flex gap-2 mb-4" style="max-width:420px">
+    {% if category_id %}<input type="hidden" name="category" value="{{ category_id }}">{% endif %}
+    <input type="search" name="q" value="{{ q }}" placeholder="Поиск...">
+    <button class="btn btn-sm" type="submit">Найти</button>
+  </form>
+  <div class="chips">
+    <a href="{{ url_for('catalog') }}" class="chip {% if not category_id %}active{% endif %}">Все</a>
+    {% for c in categories %}
+    <a href="{{ url_for('catalog', category=c.id, q=q or none) }}" class="chip {% if category_id == c.id %}active{% endif %}">{{ c.name }}</a>
+    {% endfor %}
+  </div>
+  <p class="muted mb-4">{{ products|length }} товар(ов)</p>
+  <div class="prod-grid">
+    {% for p in products %}
+    {% include "partials/product_card.html" %}
+    {% else %}
+    <p class="muted" style="grid-column:1/-1;text-align:center;padding:48px 0">Ничего не найдено</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

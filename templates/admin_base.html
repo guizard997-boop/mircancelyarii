@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container" style="max-width:900px">
+  <div class="admin-nav">
+    <a href="{{ url_for('admin_dashboard') }}" class="chip {% if admin_tab=='dash' %}active{% endif %}">Дашборд</a>
+    <a href="{{ url_for('admin_products') }}" class="chip {% if admin_tab=='products' %}active{% endif %}">Товары</a>
+    <a href="{{ url_for('admin_orders') }}" class="chip {% if admin_tab=='orders' %}active{% endif %}">Заявки</a>
+    <a href="{{ url_for('admin_orgs') }}" class="chip {% if admin_tab=='orgs' %}active{% endif %}">Организации</a>
+    <a href="{{ url_for('admin_debts') }}" class="chip {% if admin_tab=='debts' %}active{% endif %}">Долги</a>
+    <a href="{{ url_for('admin_categories') }}" class="chip {% if admin_tab=='cats' %}active{% endif %}">Категории</a>
+    <a href="{{ url_for('admin_logout') }}" class="chip" style="color:#E11D48;border-color:#FECDD3">Выйти</a>
+  </div>
+  {% block admin %}{% endblock %}
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "admin_base.html" %}
+{% block title %}Заявки — админ{% endblock %}
+{% block admin %}
+<h1 class="section-title mb-4">Заявки</h1>
+{% for o in orders %}
+<div class="panel mb-4">
+  <div class="flex justify-between items-center mb-2">
+    <div style="font-weight:800">#{{ o.id }} · {{ o.customer_name }}</div>
+    <div style="font-size:12px;font-weight:700;color:{% if o.status=='new' %}#D97706{% elif o.status=='done' %}#059669{% else %}#E11D48{% endif %}">
+      {% if o.status=='new' %}Новая{% elif o.status=='done' %}Готово{% else %}Отмена{% endif %}
+    </div>
+  </div>
+  <div style="font-size:14px">{{ o.customer_phone }}</div>
+  {% if o.comment %}<div class="muted" style="margin-top:4px">{{ o.comment }}</div>{% endif %}
+  <div style="margin-top:8px">
+    {% for it in o.items %}
+    <div class="muted">• {{ it.product_name }} × {{ it.quantity }} — {{ '{:,.0f}'.format(it.price * it.quantity).replace(',', ' ') }} сом</div>
+    {% endfor %}
+  </div>
+  <div class="flex justify-between items-center mt-4">
+    <span style="font-weight:800;color:var(--brand-dark)">{{ '{:,.0f}'.format(o.total_price).replace(',', ' ') }} сом</span>
+    {% if o.status == 'new' %}
+    <div class="flex gap-2">
+      <form action="{{ url_for('admin_order_status', oid=o.id) }}" method="post">
+        <input type="hidden" name="status" value="done">
+        <button class="btn btn-sm" type="submit" style="background:#059669">Готово</button>
+      </form>
+      <form action="{{ url_for('admin_order_status', oid=o.id) }}" method="post">
+        <input type="hidden" name="status" value="cancel">
+        <button type="submit" style="background:none;border:0;color:#E11D48;font-weight:700;cursor:pointer;font-size:13px">Отмена</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<p class="muted text-center" style="padding:48px 0">Заявок пока нет</p>
+{% endfor %}
+{% endblock %}
