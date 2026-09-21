@@ -585,3 +585,21 @@ th { color: rgba(46,16,101,0.45); font-weight: 600; font-size: 12px; }
 .stat-value { font-size: 24px; font-weight: 800; margin-top: 4px; }
 .stat-value.amber { color: #D97706; }
 .stat-value.red { color: #DC2626; }
+
+/* Extra polish matching mockup */
+.hero-visual::after {
+  content: 'Учись · Создавай · Мечтай ♥';
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(124, 58, 237, 0.5);
+}
+.cat-card:nth-child(1) .cat-icon { background: linear-gradient(145deg, #DDD6FE, #E0E7FF); }
+.cat-card:nth-child(2) .cat-icon { background: linear-gradient(145deg, #FCE7F3, #FBCFE8); }
+.cat-card:nth-child(3) .cat-icon { background: linear-gradient(145deg, #E0E7FF, #DBEAFE); }
+.cat-card:nth-child(4) .cat-icon { background: linear-gradient(145deg, #FCE7F3, #FBCFE8); }
+.cat-card:nth-child(5) .cat-icon { background: linear-gradient(145deg, #E0E7FF, #C7D2FE); }
+.cat-card:nth-child(6) .cat-icon { background: linear-gradient(145deg, #DBEAFE, #E0E7FF); }
+.nav a.active { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
