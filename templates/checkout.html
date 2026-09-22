@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Оформление — {{ site_name }}{% endblock %}
 {% block content %}
-<div class="container" style="max-width:420px">
+<div class="container" style="max-width:440px">
   <h1 class="section-title mb-2">Оформление</h1>
-  <p class="muted mb-4">Итого: <b style="color:var(--brand-dark)">{{ '{:,.0f}'.format(total).replace(',', ' ') }} сом</b> · Без доставки</p>
-  <form method="post" class="panel" style="display:flex;flex-direction:column;gap:12px">
+  <p class="muted mb-4">Итого: <b style="color:var(--brand-dark)">{{ '{:,.0f}'.format(total).replace(',', ' ') }} сом</b></p>
+  <form method="post" class="panel" style="display:flex;flex-direction:column;gap:14px">
     <div>
       <label>Имя</label>
       <input name="name" required placeholder="Как к вам обращаться">
@@ -12,6 +12,26 @@
     <div>
       <label>Телефон</label>
       <input name="phone" required placeholder="+996 ..." inputmode="tel">
+    </div>
+    <div>
+      <label>Способ оплаты</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+        <label style="display:flex;align-items:center;gap:10px;font-weight:600;color:var(--ink);padding:10px 12px;border:1px solid #E9D5FF;border-radius:12px;cursor:pointer">
+          <input type="radio" name="payment_method" value="cash" checked style="width:auto">
+          <span>💵 При получении / наличными</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;font-weight:600;color:var(--ink);padding:10px 12px;border:1px solid #E9D5FF;border-radius:12px;cursor:pointer">
+          <input type="radio" name="payment_method" value="transfer" style="width:auto">
+          <span>🏦 Перевод на карту (реквизиты)</span>
+        </label>
+        {% if payment_link_1 or payment_link_2 %}
+        <label style="display:flex;align-items:center;gap:10px;font-weight:600;color:var(--ink);padding:10px 12px;border:1px solid #E9D5FF;border-radius:12px;cursor:pointer">
+          <input type="radio" name="payment_method" value="link" style="width:auto">
+          <span>🔗 Оплата по ссылке</span>
+        </label>
+        {% endif %}
+      </div>
+      <p class="muted" style="margin-top:8px;font-size:12px;line-height:1.45">{{ payment_info }}</p>
     </div>
     <div>
       <label>Комментарий</label>

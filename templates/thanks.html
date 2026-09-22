@@ -1,10 +1,36 @@
 {% extends "base.html" %}
 {% block title %}Спасибо — {{ site_name }}{% endblock %}
 {% block content %}
-<div class="container text-center" style="max-width:420px;padding-top:64px">
+<div class="container text-center" style="max-width:460px;padding-top:56px">
   <div style="font-size:56px;margin-bottom:12px">✅</div>
   <h1 class="section-title mb-2">Заявка #{{ order.id }} принята</h1>
-  <p class="muted mb-4">Мы свяжемся с вами по телефону <b>{{ order.customer_phone }}</b></p>
+  <p class="muted mb-3">Мы свяжемся с вами по телефону <b>{{ order.customer_phone }}</b></p>
+
+  {% if order.payment_method == 'link' %}
+  <div class="panel" style="text-align:left;margin-bottom:20px">
+    <div style="font-weight:800;margin-bottom:12px;color:var(--brand-dark)">🔗 Оплата по ссылке</div>
+    <p class="muted" style="margin-bottom:14px;line-height:1.5">Выберите удобный способ и оплатите. После оплаты мы отметим заявку как «Оплачено».</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      {% if payment_link_1 %}
+      <a href="{{ payment_link_1 }}" target="_blank" rel="noopener" class="btn w-full">{{ payment_link_1_label }}</a>
+      {% endif %}
+      {% if payment_link_2 %}
+      <a href="{{ payment_link_2 }}" target="_blank" rel="noopener" class="btn btn-pink w-full">{{ payment_link_2_label }}</a>
+      {% endif %}
+      {% if not payment_link_1 and not payment_link_2 %}
+      <p class="muted">Ссылки ещё не добавлены. Напишите нам — пришлём ссылку на оплату.</p>
+      {% endif %}
+    </div>
+  </div>
+  {% elif order.payment_method == 'transfer' %}
+  <div class="panel" style="text-align:left;margin-bottom:20px">
+    <div style="font-weight:800;margin-bottom:8px;color:var(--brand-dark)">💳 Ожидаем оплату</div>
+    <p class="muted" style="line-height:1.5">{{ payment_info }}</p>
+  </div>
+  {% else %}
+  <p class="muted mb-4">Оплата: <b>при получении</b></p>
+  {% endif %}
+
   <a href="{{ url_for('catalog') }}" class="btn">В каталог</a>
 </div>
 {% endblock %}

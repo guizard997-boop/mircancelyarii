@@ -41,6 +41,14 @@ ADMIN_IDS = [x.strip() for x in os.environ.get("TELEGRAM_ADMIN_IDS", "").split("
 API_SECRET = os.environ.get("API_SECRET", "mir-api-secret-2026")
 SITE_NAME = os.environ.get("SITE_NAME", "Мир Канцелярии")
 SITE_PHONE = os.environ.get("SITE_PHONE", "")
+PAYMENT_INFO = os.environ.get(
+    "PAYMENT_INFO",
+    "Перевод на карту — уточните реквизиты у менеджера после заявки",
+)
+PAYMENT_LINK_1 = os.environ.get("PAYMENT_LINK_1", "").strip()
+PAYMENT_LINK_2 = os.environ.get("PAYMENT_LINK_2", "").strip()
+PAYMENT_LINK_1_LABEL = os.environ.get("PAYMENT_LINK_1_LABEL", "Оплатить (ссылка 1)").strip()
+PAYMENT_LINK_2_LABEL = os.environ.get("PAYMENT_LINK_2_LABEL", "Оплатить (ссылка 2)").strip()
 SITE_TAGLINE = os.environ.get(
     "SITE_TAGLINE", "Стильные канцтовары для учёбы, работы и твоих больших идей"
 )
@@ -90,8 +98,9 @@ class Order(db.Model):
     customer_name = db.Column(db.String(120), nullable=False)
     customer_phone = db.Column(db.String(50), nullable=False)
     comment = db.Column(db.Text, default="")
+    payment_method = db.Column(db.String(40), default="cash")  # cash / transfer
     total_price = db.Column(db.Float, default=0)
-    status = db.Column(db.String(30), default="new")
+    status = db.Column(db.String(30), default="new")  # new / await_pay / paid / done / cancel
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     items = db.relationship("OrderItem", backref="order", lazy=True, cascade="all, delete-orphan")
 
@@ -183,6 +192,14 @@ def tg_notify_order(order):
     ]
     if order.comment:
         lines.append(f"💬 {order.comment}")
+    pm = getattr(order, "payment_method", "cash")
+    if pm == "link":
+        pay = "Оплата по ссылке"
+    elif pm == "transfer":
+        pay = "Перевод на карту"
+    else:
+        pay = "Наличными / при получении"
+    lines.append(f"💳 {pay}")
     lines.append("")
     lines.append("<b>Товары:</b>")
     for it in order.items:
@@ -308,12 +325,17 @@ def checkout():
         if not name or not phone:
             flash("Укажите имя и телефон", "danger")
             return redirect(url_for("checkout"))
+        pay_method = request.form.get("payment_method", "cash")
+        if pay_method not in ("cash", "transfer", "link"):
+            pay_method = "cash"
+        status = "await_pay" if pay_method in ("transfer", "link") else "new"
         order = Order(
             customer_name=name,
             customer_phone=phone,
             comment=comment,
+            payment_method=pay_method,
             total_price=cart_total(),
-            status="new",
+            status=status,
         )
         db.session.add(order)
         db.session.flush()
@@ -335,8 +357,24 @@ def checkout():
         except Exception as e:
             print("notify", e)
         session["cart"] = {}
-        return render_template("thanks.html", order=order)
-    return render_template("checkout.html", total=cart_total())
+        return render_template(
+            "thanks.html",
+            order=order,
+            payment_info=PAYMENT_INFO,
+            payment_link_1=PAYMENT_LINK_1,
+            payment_link_2=PAYMENT_LINK_2,
+            payment_link_1_label=PAYMENT_LINK_1_LABEL,
+            payment_link_2_label=PAYMENT_LINK_2_LABEL,
+        )
+    return render_template(
+            "checkout.html",
+            total=cart_total(),
+            payment_info=PAYMENT_INFO,
+            payment_link_1=PAYMENT_LINK_1,
+            payment_link_2=PAYMENT_LINK_2,
+            payment_link_1_label=PAYMENT_LINK_1_LABEL,
+            payment_link_2_label=PAYMENT_LINK_2_LABEL,
+        )
 
 
 # ─── Admin ────────────────────────────────────────────────
@@ -364,7 +402,7 @@ def admin_dashboard():
     debt_open = db.session.query(db.func.coalesce(db.func.sum(Debt.amount), 0)).filter_by(status="open").scalar() or 0
     stats = {
         "products": Product.query.count(),
-        "new_orders": Order.query.filter_by(status="new").count(),
+        "new_orders": Order.query.filter(Order.status.in_(["new", "await_pay"])).count(),
         "orders": Order.query.count(),
         "debts": debt_open,
     }
@@ -447,7 +485,7 @@ def admin_order_status(oid):
     o = db.session.get(Order, oid)
     if o:
         st = request.form.get("status", "")
-        if st in ("new", "done", "cancel"):
+        if st in ("new", "await_pay", "paid", "done", "cancel"):
             o.status = st
             db.session.commit()
     return redirect(url_for("admin_orders"))
@@ -636,6 +674,15 @@ def health():
 with app.app_context():
     try:
         db.create_all()
+        # soft migrate payment_method for old SQLite DBs
+        try:
+            from sqlalchemy import text as sql_text
+            cols = [r[1] for r in db.session.execute(sql_text("PRAGMA table_info(order)")).fetchall()]
+            if "payment_method" not in cols:
+                db.session.execute(sql_text("ALTER TABLE 'order' ADD COLUMN payment_method VARCHAR(40) DEFAULT 'cash'"))
+                db.session.commit()
+        except Exception as mig_e:
+            print("migrate", mig_e)
         existing = {c.name for c in Category.query.all()}
         for n in DEFAULT_CATEGORIES:
             if n not in existing:
