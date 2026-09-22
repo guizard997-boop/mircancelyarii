@@ -12,11 +12,11 @@
 <body>
 <div class="topbar">
   <div class="topbar-inner">
-    <span>✦ Предзаказ по Кыргызстану</span>
-    <div class="topbar-links">
-      <span>Только предзаказ</span>
-      <span>Оплата при получении</span>
-      {% if phone %}<a href="tel:{{ phone }}">{{ phone }}</a>{% endif %}
+    <div class="topbar-left">✦ Предзаказ по Кыргызстану</div>
+    <div class="topbar-right">
+      <span>Доставка</span>
+      <span>Оплата</span>
+      {% if phone %}<a href="tel:{{ phone }}">Контакты</a>{% else %}<span>Контакты</span>{% endif %}
     </div>
   </div>
 </div>
@@ -24,7 +24,7 @@
 <header class="header">
   <div class="header-inner">
     <a href="{{ url_for('index') }}" class="logo">
-      <span class="logo-icon">👑</span>
+      <div class="logo-mark">👑</div>
       <div>
         <div class="logo-text">Мир Канцелярии</div>
         <div class="logo-sub">Больше, чем просто канцтовары</div>
@@ -33,18 +33,21 @@
     <nav class="nav">
       <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">Главная</a>
       <a href="{{ url_for('catalog') }}" class="{% if request.endpoint == 'catalog' %}active{% endif %}">Каталог</a>
+      <a href="{{ url_for('catalog') }}">Бренды</a>
       <a href="{{ url_for('catalog') }}">Акции</a>
       <a href="{{ url_for('about') }}">О нас</a>
     </nav>
-    <form class="search-form" action="{{ url_for('catalog') }}" method="get">
-      <input type="search" name="q" value="{{ request.args.get('q','') }}" placeholder="Поиск товаров...">
-    </form>
-    <a href="{{ url_for('cart_page') }}" class="cart-btn">
-      🛒{% if cart_count %}<span class="cart-badge">{{ cart_count }}</span>{% endif %}
-    </a>
-    {% if session.get('admin') %}
-    <a href="{{ url_for('admin_dashboard') }}" style="font-size:12px;font-weight:700;color:var(--brand-dark)">Админ</a>
-    {% endif %}
+    <div class="header-actions">
+      <form class="search-form" action="{{ url_for('catalog') }}" method="get">
+        <input type="search" name="q" value="{{ request.args.get('q','') }}" placeholder="Поиск...">
+      </form>
+      <a href="{{ url_for('cart_page') }}" class="icon-btn" title="Корзина">
+        🛒{% if cart_count %}<span class="cart-badge">{{ cart_count }}</span>{% endif %}
+      </a>
+      {% if session.get('admin') %}
+      <a href="{{ url_for('admin_dashboard') }}" class="icon-btn" title="Админ" style="font-size:12px;font-weight:800">A</a>
+      {% endif %}
+    </div>
   </div>
 </header>
 
@@ -63,11 +66,11 @@
 <footer class="footer">
   <div class="footer-inner">
     <div>
-      <div class="logo" style="margin-bottom:8px">
-        <span class="logo-icon">👑</span>
+      <a href="{{ url_for('index') }}" class="logo" style="margin-bottom:10px">
+        <div class="logo-mark" style="width:36px;height:36px;font-size:16px">👑</div>
         <div class="logo-text">Мир Канцелярии</div>
-      </div>
-      <p class="muted" style="max-width:320px;line-height:1.5">{{ tagline }}</p>
+      </a>
+      <p class="muted" style="max-width:300px;line-height:1.55">{{ tagline }}</p>
       <div class="footer-script script">Канцелярия которая вдохновляет ♥</div>
     </div>
     <div>
@@ -79,22 +82,22 @@
     <div>
       <div class="footer-title">Связь</div>
       {% if phone %}<a href="tel:{{ phone }}">{{ phone }}</a>{% endif %}
-      <p class="muted" style="margin-top:8px">Только предзаказ · Мы свяжемся с вами</p>
+      <p class="muted" style="margin-top:8px">Предзаказ · Мы свяжемся с вами</p>
     </div>
   </div>
   <div class="footer-bar">
-    <span>🚚 Предзаказ по Кыргызстану</span>
+    <span>🚚 Быстрая доставка по Кыргызстану</span>
     <span>🛡 Гарантия качества</span>
-    <span>♥ Любимые бренды</span>
-    <span>👑 Для учёбы и творчества</span>
+    <span>♥ Любимые бренды и новинки</span>
+    <span>👑 Для учёбы, работы и творчества</span>
   </div>
 </footer>
 
 <nav class="bottom-nav">
-  <a href="{{ url_for('index') }}"><span class="ico">🏠</span>Главная</a>
-  <a href="{{ url_for('catalog') }}"><span class="ico">📦</span>Каталог</a>
+  <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}"><span class="ico">🏠</span>Главная</a>
+  <a href="{{ url_for('catalog') }}" class="{% if request.endpoint == 'catalog' %}active{% endif %}"><span class="ico">📦</span>Каталог</a>
   <a href="{{ url_for('cart_page') }}"><span class="ico">🛒</span>Корзина{% if cart_count %}<span class="cart-badge">{{ cart_count }}</span>{% endif %}</a>
-  <a href="{{ url_for('admin_login') }}"><span class="ico">👤</span>Кабинет</a>
+  <a href="{{ url_for('admin_login') }}"><span class="ico">👤</span>Профиль</a>
 </nav>
 </body>
 </html>

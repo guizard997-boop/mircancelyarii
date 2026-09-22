@@ -4,17 +4,24 @@
 <section class="hero">
   <div class="hero-inner">
     <div>
-      <p class="hero-script script">Твое вдохновение <span>♥</span></p>
+      <p class="hero-script script">Твое вдохновение <span class="heart">♥</span> <span class="hero-crown">👑</span></p>
       <h1 class="hero-title">Мир Канцелярии</h1>
       <p class="hero-sub">Стильные канцтовары для учёбы, работы и твоих больших идей</p>
       <a href="{{ url_for('catalog') }}" class="btn">Перейти в каталог →</a>
       <div class="hero-features">
-        <span class="hero-feat">📦 Предзаказ по Кыргызстану</span>
-        <span class="hero-feat">✨ Только оригинальная продукция</span>
-        <span class="hero-feat">💬 Связь по телефону</span>
+        <span class="hero-feat">🚚 Доставка по всей Кыргызстану</span>
+        <span class="hero-feat">👑 Только оригинальная продукция</span>
+        <span class="hero-feat">💳 Удобная оплата онлайн и наличными</span>
       </div>
     </div>
-    <div class="hero-visual">✏️📓🎀</div>
+    <div class="hero-stage">
+      <div class="hero-neon">Учись<br>Создавай<br>Мечтай ♥</div>
+      <div class="hero-stage-grid">
+        <div class="hero-tile big">✏️📓</div>
+        <div class="hero-tile">🎀</div>
+        <div class="hero-tile">🐰</div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -24,27 +31,37 @@
     <a href="{{ url_for('catalog') }}" class="section-link">Смотреть всё →</a>
   </div>
   <div class="cat-grid">
-    {% set icons = ['✏️','📓','🎒','🎨','📎','🏫','🖊️','📐'] %}
-    {% for c in categories[:6] %}
-    <a href="{{ url_for('catalog', category=c.id) }}" class="cat-card">
-      <div class="cat-icon">{{ icons[loop.index0 % icons|length] }}</div>
-      <div class="cat-name">{{ c.name }}</div>
+    {% set icons = ['✏️','📓','🎒','🎨','📎','🏫'] %}
+    {% set names = ['Письменные принадлежности','Тетради и блокноты','Рюкзаки и сумки','Для творчества','Офисные товары','Школьные товары'] %}
+    {% for i in range(6) %}
+      {% set matched = categories|selectattr('name', 'equalto', names[i])|list %}
+      {% if matched %}
+        {% set href = url_for('catalog', category=matched[0].id) %}
+      {% else %}
+        {% set href = url_for('catalog') %}
+      {% endif %}
+    <a href="{{ href }}" class="cat-card">
+      <div class="cat-thumb">{{ icons[i] }}</div>
+      <div class="cat-body"><div class="cat-name">{{ names[i] }}</div></div>
     </a>
-    {% else %}
-    <p class="muted">Категории появятся после запуска</p>
     {% endfor %}
   </div>
 </section>
 
-<section class="section" style="padding-top:0">
+<div class="banner-wrap">
   <div class="banner-pre">
     <div>
       <h3>Предзаказ по Кыргызстану</h3>
       <p>Любимые товары — даже если их нет в наличии! Оставьте заявку — мы свяжемся с вами.</p>
+      <div style="margin-top:14px">
+        <a href="{{ url_for('catalog') }}" class="btn btn-white btn-sm">Узнать подробнее →</a>
+      </div>
     </div>
-    <a href="{{ url_for('catalog') }}" class="btn btn-sm">Узнать подробнее →</a>
+    <div class="banner-icons">
+      <span>🚚</span><span>🏔️</span><span>📍</span>
+    </div>
   </div>
-</section>
+</div>
 
 <section class="section">
   <div class="section-head">
@@ -55,7 +72,7 @@
     {% for p in products %}
     {% include "partials/product_card.html" %}
     {% else %}
-    <p class="muted" style="grid-column:1/-1;text-align:center;padding:48px 0">Каталог пока пуст — скоро добавим хиты</p>
+    <p class="muted" style="grid-column:1/-1;text-align:center;padding:56px 0">Каталог пока пуст — добавьте товары в админке</p>
     {% endfor %}
   </div>
 </section>
