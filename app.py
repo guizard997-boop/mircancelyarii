@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Мир Канцелярии — магазин с дизайном по макету."""
 import os
+from catalog_seed import seed as seed_catalog
 import uuid
 from datetime import datetime
 from functools import wraps
@@ -286,6 +287,8 @@ def cart_add(pid):
     c = cart()
     c[str(pid)] = int(c.get(str(pid), 0)) + qty
     session["cart"] = c
+    if request.headers.get("X-Requested-With") == "fetch":
+        return jsonify(ok=True, name=p.name, count=cart_count())
     flash(f"{p.name} добавлен в предзаказ", "success")
     return redirect(request.referrer or url_for("catalog"))
 
@@ -677,7 +680,7 @@ with app.app_context():
         # soft migrate payment_method for old SQLite DBs
         try:
             from sqlalchemy import text as sql_text
-            cols = [r[1] for r in db.session.execute(sql_text("PRAGMA table_info(order)")).fetchall()]
+            cols = [r[1] for r in db.session.execute(sql_text("PRAGMA table_info('order')")).fetchall()]
             if "payment_method" not in cols:
                 db.session.execute(sql_text("ALTER TABLE 'order' ADD COLUMN payment_method VARCHAR(40) DEFAULT 'cash'"))
                 db.session.commit()
@@ -688,6 +691,7 @@ with app.app_context():
             if n not in existing:
                 db.session.add(Category(name=n))
         db.session.commit()
+        seed_catalog(app, db, Product, Category)
     except Exception as e:
         print("init", e)
 

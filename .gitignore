@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+app.py.bak
+*.sqlite3
+*.db
+photos_raw/
+.venv/
+venv/
