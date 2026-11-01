@@ -4,8 +4,8 @@
 Запуск:
     pip install pillow numpy opencv-python-headless          # обязательно
     pip install "rembg[cpu]"                                 # желательно: точнее вырезает фон
-    python tools/studio.py photos_raw catalog                # розовый фон под сайт
-    python tools/studio.py photos_raw catalog --bg white     # белый «каталожный» фон
+    python tools/studio.py photos_raw catalog                # тёмный фон под сайт
+    python tools/studio.py photos_raw catalog --bg soft      # светлый фон (или white)
 
 Что делает с каждым фото:
   1. Поворот по EXIF, уменьшение до 1600 px.
@@ -34,7 +34,8 @@ except Exception:
 
 EXT = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
 SIZE = 1000
-PINK_CENTER, PINK_EDGE = (255, 247, 251), (255, 214, 231)
+DARK_CENTER, DARK_EDGE = (52, 52, 52), (6, 6, 6)
+SOFT_CENTER, SOFT_EDGE = (255, 255, 255), (228, 230, 235)
 
 
 def load(path, long_side=1600):
@@ -86,10 +87,11 @@ def cutout_ok(rgba):
 def backdrop(kind):
     if kind == 'white':
         return Image.new('RGB', (SIZE, SIZE), (255, 255, 255))
+    c_in, c_out = (DARK_CENTER, DARK_EDGE) if kind == 'dark' else (SOFT_CENTER, SOFT_EDGE)
     y, x = np.mgrid[0:SIZE, 0:SIZE].astype(np.float32)
     d = np.sqrt(((x - SIZE / 2) / (SIZE * .75)) ** 2 + ((y - SIZE * .45) / (SIZE * .75)) ** 2)
     d = np.clip(d, 0, 1)[..., None]
-    c0, c1 = np.array(PINK_CENTER, np.float32), np.array(PINK_EDGE, np.float32)
+    c0, c1 = np.array(c_in, np.float32), np.array(c_out, np.float32)
     return Image.fromarray((c0 * (1 - d) + c1 * d).astype(np.uint8))
 
 
@@ -116,7 +118,7 @@ def compose(rgba, kind):
     sil.paste(rgba.getchannel('A').point(lambda v: int(v * .28)), (x + 8, y + 14))
     sil = sil.filter(ImageFilter.GaussianBlur(18))
     shadow = ImageChops.lighter(sh, sil)
-    tint = (150, 60, 100) if kind != 'white' else (70, 70, 80)
+    tint = (0, 0, 0) if kind == 'dark' else (60, 66, 90)
     bg.paste(Image.new('RGBA', (SIZE, SIZE), tint + (255,)), (0, 0), shadow)
     bg.alpha_composite(rgba, (x, y))
     return bg.convert('RGB')
@@ -167,7 +169,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('src')
     ap.add_argument('dst', nargs='?', default='catalog')
-    ap.add_argument('--bg', choices=['pink', 'white'], default='pink')
+    ap.add_argument('--bg', choices=['dark', 'soft', 'white'], default='dark')
     a = ap.parse_args()
     src, dst = Path(a.src), Path(a.dst)
     dst.mkdir(parents=True, exist_ok=True)
