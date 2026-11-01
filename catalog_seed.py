@@ -28,9 +28,7 @@ def seed(app, db, Product, Category):
         with open(csv_path, encoding='utf-8-sig', newline='') as f:
             for r in csv.DictReader(f):
                 fname, name = (r.get('file') or '').strip(), (r.get('name') or '').strip()
-                if (not fname or os.path.basename(fname) != fname or not name
-                        or not fname.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
-                        or not os.path.isfile(os.path.join(CATALOG_DIR, fname))):
+                if not fname or not name or not os.path.exists(os.path.join(CATALOG_DIR, fname)):
                     continue
                 url = f'/catalog-img/{fname}'
                 if Product.query.filter_by(image_url=url).first():

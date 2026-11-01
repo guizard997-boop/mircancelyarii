@@ -768,6 +768,24 @@ def admin_set_webhook():
     return redirect(url_for('admin_contacts'))
 
 
+ERRORS = {400: ('Запрос не удался', 'Проверьте данные и попробуйте ещё раз.'),
+          403: ('Сюда нельзя', 'Дверь заперта изнутри.'),
+          404: ('Эта страница ушла в мир иной', 'Её здесь больше нет. Вернитесь к живым.'),
+          405: ('Так нельзя', 'Это действие здесь не поддерживается.'),
+          413: ('Файл слишком тяжёлый', 'Выберите фото поменьше, до 10 МБ.'),
+          500: ('Что-то пошло не так', 'Тёмные силы вмешались. Попробуйте позже.')}
+
+
+def _error(e):
+    code = getattr(e, 'code', 500)
+    msg, sub = ERRORS.get(code, ERRORS[500])
+    return render_template('error.html', title=str(code), code=code, msg=msg, sub=sub), code
+
+
+for _c in ERRORS:
+    app.register_error_handler(_c, _error)
+
+
 # ============================ ЗАПУСК ============================
 def ensure_columns():
     with db.engine.begin() as c:
