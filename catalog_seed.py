@@ -25,13 +25,16 @@ def seed(app, db, Product, Category):
         return
     added = 0
     with app.app_context():
+        existing_urls = {url for (url,) in db.session.query(Product.image_url).all() if url}
         with open(csv_path, encoding='utf-8-sig', newline='') as f:
             for r in csv.DictReader(f):
                 fname, name = (r.get('file') or '').strip(), (r.get('name') or '').strip()
-                if not fname or not name or not os.path.exists(os.path.join(CATALOG_DIR, fname)):
+                if (not fname or os.path.basename(fname) != fname or
+                        not fname.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) or
+                        not name or not os.path.isfile(os.path.join(CATALOG_DIR, fname))):
                     continue
                 url = f'/catalog-img/{fname}'
-                if Product.query.filter_by(image_url=url).first():
+                if url in existing_urls:
                     continue
                 try:
                     price = float((r.get('price') or '0').replace(',', '.').replace(' ', ''))
@@ -45,8 +48,10 @@ def seed(app, db, Product, Category):
                         cat = Category(name=cname)
                         db.session.add(cat)
                         db.session.flush()
-                db.session.add(Product(name=name[:200], description='', price=price,
+                description = (r.get('description') or '').strip()
+                db.session.add(Product(name=name[:200], description=description,
                                        image_url=url, category_id=cat.id if cat else None))
+                existing_urls.add(url)
                 added += 1
         db.session.commit()
     if added:

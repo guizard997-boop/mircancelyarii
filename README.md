@@ -29,7 +29,7 @@
 ## Студийные фото
     pip install pillow numpy opencv-python-headless "rembg[cpu]"
     python tools/studio.py photos_raw catalog          # тёмный фон (--bg soft или white для светлого)
-Откройте `catalog/catalog.csv`, впишите name, price, category, закоммитьте папку `catalog/`. Сайт сам создаст товары при запуске.
+Откройте `catalog/catalog.csv` (столбцы `file`, `name`, `description`, `price`, `category`) и закоммитьте папку `catalog/`. При запуске сайт создаст отсутствующие по фото товары; уже существующие записи и их цены не перезаписываются.
 На сайте фото в списке чёрно-белые, цвет возвращается при наведении и на странице товара.
 
 ## Telegram-бот (необязательно)
