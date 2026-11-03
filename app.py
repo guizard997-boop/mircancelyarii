@@ -21,7 +21,12 @@ import uuid
 from datetime import datetime, timedelta
 from functools import wraps
 
+import csv
+import io
+import urllib.parse
+
 import requests
+from markupsafe import Markup
 from flask import (Flask, Response, abort, flash, jsonify, redirect, render_template,
                    request, send_from_directory, session, url_for)
 from flask_sqlalchemy import SQLAlchemy
@@ -29,6 +34,7 @@ from jinja2 import DictLoader
 from sqlalchemy import event, func, text
 from sqlalchemy.engine import Engine
 
+import themes
 from templates_data import T
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -144,6 +150,36 @@ class BotState(db.Model):
     draft_category_id = db.Column(db.Integer)
 
 
+class Debtor(db.Model):
+    """Клиент, который взял товар в долг."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(30), default='')
+    note = db.Column(db.Text, default='')
+    due = db.Column(db.Date)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    entries = db.relationship('DebtEntry', backref='debtor', cascade='all, delete-orphan',
+                              order_by='DebtEntry.created_at.desc(), DebtEntry.id.desc()')
+
+    @property
+    def balance(self):
+        return sum(e.amount if e.kind == 'debt' else -e.amount for e in self.entries)
+
+    @property
+    def overdue(self):
+        return bool(self.due and self.balance > 0 and self.due < themes.today_kg().date())
+
+
+class DebtEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    debtor_id = db.Column(db.Integer, db.ForeignKey('debtor.id'), nullable=False)
+    kind = db.Column(db.String(10), nullable=False)  # debt | payment
+    amount = db.Column(db.Float, nullable=False)
+    note = db.Column(db.String(300), default='')
+    order_id = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 # ============================ ХЕЛПЕРЫ ============================
 def get_setting(key, default=''):
     s = Setting.query.filter_by(key=key).first()
@@ -236,13 +272,22 @@ def tel(s):
     return re.sub(r'[^\d+]', '', s or '')
 
 
+def current_theme():
+    prev = session.get('preview') if session.get('admin') else None
+    th = themes.resolve(get_setting('theme', 'halloween'), get_setting('theme_auto') == '1', prev)
+    return th, bool(prev and prev in themes.THEMES)
+
+
 @app.context_processor
 def inject():
     raw = get_setting('phones')
+    th, is_prev = current_theme()
+    fx_on = get_setting('fx', 'on') != 'off' and not request.path.startswith('/admin')
     return dict(cart_count=cart_count(), csrf_token=csrf_token, statuses=STATUSES,
                 categories=Category.query.order_by(Category.name).all(),
                 phones=[l.strip() for l in raw.splitlines() if l.strip()],
-                whatsapp=get_setting('whatsapp'))
+                whatsapp=get_setting('whatsapp'), th=th, thx=themes.pieces(th, get_setting('ticker_custom'), fx_on),
+                motifs=Markup(themes.MOTIFS), preview=is_prev)
 
 
 # ============================ ФАЙЛЫ ============================
@@ -397,7 +442,8 @@ def admin_dashboard():
     return render_template('admin_dashboard.html', title='Админка', active='dashboard', orders=orders,
                            pc=Product.query.count(), oc=Order.query.count(),
                            nc=Order.query.filter_by(status='Новый').count(), revenue=revenue,
-                           default_pw=DEFAULT_PW, methods=PaymentMethod.query.all())
+                           default_pw=DEFAULT_PW, methods=PaymentMethod.query.all(),
+                           debt_total=sum(d.balance for d in Debtor.query.all() if d.balance > 0))
 
 
 # --- товары
@@ -580,6 +626,230 @@ def admin_contacts():
                            phones_raw=get_setting('phones'), bot_on=bool(TG_TOKEN))
 
 
+# --- оформление (темы)
+@app.route('/admin/theme')
+@admin_required
+def admin_theme():
+    chosen, auto = get_setting('theme', 'halloween'), get_setting('theme_auto') == '1'
+    return render_template('admin_theme.html', title='Оформление', active='theme', groups=themes.GROUPS,
+                           by_group={g: [x for x in themes.THEMES_LIST if x['group'] == g] for g in themes.GROUPS},
+                           chosen=chosen, shown=themes.resolve(chosen, auto)['id'], auto=auto,
+                           auto_name=themes.THEMES[themes.auto_theme()]['name'], fx_on=get_setting('fx', 'on') != 'off',
+                           ticker_custom=get_setting('ticker_custom'))
+
+
+@app.route('/admin/theme/set', methods=['POST'])
+@admin_required
+def admin_theme_set():
+    tid = request.form.get('id')
+    if tid in themes.THEMES:
+        set_setting('theme', tid)
+        set_setting('theme_auto', '')
+        session.pop('preview', None)
+        flash(f'Тема «{themes.THEMES[tid]["name"]}» включена', 'success')
+    return redirect(url_for('admin_theme'))
+
+
+@app.route('/admin/theme/mode', methods=['POST'])
+@admin_required
+def admin_theme_mode():
+    set_setting('theme_auto', '1' if request.form.get('auto') else '')
+    set_setting('fx', 'on' if request.form.get('fx') else 'off')
+    set_setting('ticker_custom', request.form.get('ticker', '').strip()[:600])
+    flash('Настройки оформления сохранены', 'success')
+    return redirect(url_for('admin_theme'))
+
+
+@app.route('/admin/theme/preview/stop')
+@admin_required
+def admin_theme_preview_stop():
+    session.pop('preview', None)
+    return redirect(url_for('admin_theme'))
+
+
+@app.route('/admin/theme/preview/<tid>')
+@admin_required
+def admin_theme_preview(tid):
+    if tid in themes.THEMES:
+        session['preview'] = tid
+    return redirect('/')
+
+
+# --- долги
+def parse_amount(s):
+    try:
+        v = float((s or '').replace('\u00a0', '').replace(' ', '').replace(',', '.'))
+        return v if v > 0 else None
+    except ValueError:
+        return None
+
+
+def parse_date(s):
+    try:
+        return datetime.strptime(s, '%Y-%m-%d')
+    except (TypeError, ValueError):
+        return None
+
+
+def digits(s):
+    return re.sub(r'\D', '', s or '')
+
+
+def find_or_create_debtor(name, phone=''):
+    d = None
+    dg = digits(phone)
+    if len(dg) >= 7:
+        d = next((x for x in Debtor.query.all() if digits(x.phone)[-9:] == dg[-9:]), None)
+    if not d:
+        d = next((x for x in Debtor.query.all() if x.name.strip().lower() == name.strip().lower()), None)
+    if not d:
+        d = Debtor(name=name.strip()[:120], phone=phone.strip()[:30])
+        db.session.add(d)
+        db.session.flush()
+    elif phone and not d.phone:
+        d.phone = phone.strip()[:30]
+    return d
+
+
+def add_entry(d, kind, amount, note='', when=None, order_id=None):
+    db.session.add(DebtEntry(debtor_id=d.id, kind=kind, amount=amount, note=(note or '')[:300],
+                             created_at=when or datetime.utcnow(), order_id=order_id))
+
+
+@app.route('/admin/debts')
+@admin_required
+def admin_debts():
+    q, f = request.args.get('q', '').strip(), request.args.get('f', 'debt')
+    everyone = Debtor.query.order_by(Debtor.name).all()
+    rows = [d for d in everyone if not q or q.lower() in d.name.lower() or digits(q) and digits(q) in digits(d.phone)]
+    rows = [d for d in rows if f == 'all' or (f == 'debt' and d.balance > 0) or (f == 'over' and d.overdue) or (f == 'paid' and d.balance <= 0)]
+    rows.sort(key=lambda d: -d.balance)
+    owing = [d for d in everyone if d.balance > 0]
+    return render_template('admin_debts.html', title='Долги', active='debts', debtors=rows, all_debtors=everyone, q=q, f=f,
+                           total=sum(d.balance for d in owing), n_debtors=len(owing), n_over=sum(1 for d in owing if d.overdue))
+
+
+@app.route('/admin/debts/add', methods=['POST'])
+@admin_required
+def admin_debt_add():
+    name, amount = request.form.get('name', '').strip(), parse_amount(request.form.get('amount'))
+    if not name or not amount:
+        flash('Укажите имя и сумму', 'danger')
+        return redirect(url_for('admin_debts'))
+    d = find_or_create_debtor(name, request.form.get('phone', ''))
+    add_entry(d, 'debt', amount, request.form.get('note', ''))
+    due = parse_date(request.form.get('due'))
+    if due:
+        d.due = due.date()
+    db.session.commit()
+    flash(f'Долг {money(amount)} сом записан: {d.name}', 'success')
+    return redirect(url_for('admin_debtor', did=d.id))
+
+
+@app.route('/admin/debts/export.csv')
+@admin_required
+def admin_debts_csv():
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(['Клиент', 'Телефон', 'Долг, сом', 'Срок возврата', 'Заметка'])
+    for d in sorted(Debtor.query.all(), key=lambda x: -x.balance):
+        w.writerow([d.name, d.phone, f'{d.balance:.0f}', d.due.strftime('%d.%m.%Y') if d.due else '', d.note or ''])
+    return Response('\ufeff' + buf.getvalue(), mimetype='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': 'attachment; filename=dolgi.csv'})
+
+
+@app.route('/admin/debts/<int:did>')
+@admin_required
+def admin_debtor(did):
+    d = db.get_or_404(Debtor, did)
+    num = digits(d.phone)
+    if num.startswith('0') and len(num) == 10:
+        num = '996' + num[1:]
+    text = f'Здравствуйте, {d.name}! Напоминаем о долге {money(d.balance)} сом в магазине «Мир канцелярии». Спасибо!'
+    return render_template('admin_debtor.html', title=d.name, active='debts', d=d, entries=d.entries, bal=d.balance,
+                           debt_sum=sum(e.amount for e in d.entries if e.kind == 'debt'),
+                           paid_sum=sum(e.amount for e in d.entries if e.kind == 'payment'),
+                           wa=f'https://wa.me/{num}?text={urllib.parse.quote(text)}')
+
+
+@app.route('/admin/debts/<int:did>/entry', methods=['POST'])
+@admin_required
+def admin_debt_entry(did):
+    d = db.get_or_404(Debtor, did)
+    kind, amount = request.form.get('kind'), parse_amount(request.form.get('amount'))
+    if kind not in ('debt', 'payment') or not amount:
+        flash('Укажите сумму', 'danger')
+        return redirect(url_for('admin_debtor', did=did))
+    when = parse_date(request.form.get('date'))
+    add_entry(d, kind, amount, request.form.get('note', ''), when)
+    due = parse_date(request.form.get('due'))
+    if kind == 'debt' and due:
+        d.due = due.date()
+    db.session.commit()
+    flash('Записано', 'success')
+    return redirect(url_for('admin_debtor', did=did))
+
+
+@app.route('/admin/debts/<int:did>/settle', methods=['POST'])
+@admin_required
+def admin_debt_settle(did):
+    d = db.get_or_404(Debtor, did)
+    if d.balance > 0:
+        add_entry(d, 'payment', d.balance, 'Полное погашение')
+        db.session.commit()
+        flash('Долг погашен полностью', 'success')
+    return redirect(url_for('admin_debtor', did=did))
+
+
+@app.route('/admin/debts/<int:did>/edit', methods=['POST'])
+@admin_required
+def admin_debtor_edit(did):
+    d = db.get_or_404(Debtor, did)
+    d.name = request.form.get('name', '').strip()[:120] or d.name
+    d.phone = request.form.get('phone', '').strip()[:30]
+    d.note = request.form.get('note', '').strip()[:1000]
+    db.session.commit()
+    flash('Данные сохранены', 'success')
+    return redirect(url_for('admin_debtor', did=did))
+
+
+@app.route('/admin/debts/<int:did>/delete', methods=['POST'])
+@admin_required
+def admin_debtor_delete(did):
+    db.session.delete(db.get_or_404(Debtor, did))
+    db.session.commit()
+    flash('Клиент удалён', 'success')
+    return redirect(url_for('admin_debts'))
+
+
+@app.route('/admin/debts/entry/<int:eid>/delete', methods=['POST'])
+@admin_required
+def admin_entry_delete(eid):
+    e = db.get_or_404(DebtEntry, eid)
+    did = e.debtor_id
+    db.session.delete(e)
+    db.session.commit()
+    flash('Запись удалена', 'success')
+    return redirect(url_for('admin_debtor', did=did))
+
+
+@app.route('/admin/orders/<int:oid>/to-debt', methods=['POST'])
+@admin_required
+def admin_order_to_debt(oid):
+    o = db.get_or_404(Order, oid)
+    if DebtEntry.query.filter_by(order_id=o.id, kind='debt').first():
+        flash('Этот заказ уже записан в долг', 'warning')
+        return redirect(url_for('admin_order', oid=oid))
+    if not o.total_price:
+        flash('У заказа нет суммы', 'danger')
+        return redirect(url_for('admin_order', oid=oid))
+    d = find_or_create_debtor(o.customer_name, o.customer_phone)
+    add_entry(d, 'debt', o.total_price, f'Заказ №{o.id}', order_id=o.id)
+    db.session.commit()
+    flash('Заказ записан в долги клиента', 'success')
+    return redirect(url_for('admin_debtor', did=d.id))
+
+
 # ============================ TELEGRAM-БОТ ============================
 TG_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
 ADMIN_IDS = {x.strip() for x in os.environ.get('TELEGRAM_ADMIN_IDS', '').split(',') if x.strip()}
@@ -710,11 +980,41 @@ def telegram_webhook():
 
     if txt.startswith('/start') or txt.startswith('/help'):
         reset()
-        tg_send(chat_id, 'Пришлите <b>фото товара</b>. Я определю название, спрошу цену и добавлю товар на сайт.\n/cancel — отменить')
+        tg_send(chat_id, 'Пришлите <b>фото товара</b>. Я определю название, спрошу цену и добавлю товар на сайт.\n/debts — список долгов\n/debt Имя 500 заметка — записать долг\n/pay Имя 500 — принять оплату\n/cancel — отменить')
         return 'ok'
     if txt.startswith('/cancel'):
         reset()
         tg_send(chat_id, 'Отменено. Пришлите новое фото.')
+        return 'ok'
+    if txt.startswith('/debts'):
+        owing = sorted((d for d in Debtor.query.all() if d.balance > 0), key=lambda d: -d.balance)
+        if not owing:
+            tg_send(chat_id, 'Долгов нет.')
+        else:
+            lines = '\n'.join(f'{i}. {htmllib.escape(d.name)} — {money(d.balance)} сом' for i, d in enumerate(owing[:25], 1))
+            tg_send(chat_id, f'<b>Долги: {money(sum(d.balance for d in owing))} сом</b> ({len(owing)} чел.)\n{lines}')
+        return 'ok'
+    if txt.startswith('/debt ') or txt.startswith('/pay '):
+        kind = 'debt' if txt.startswith('/debt ') else 'payment'
+        m = re.match(r'^(.+?)\s+(\d[\d.,]*)\s*(.*)$', txt.split(None, 1)[1].strip())
+        amount = parse_amount(m.group(2)) if m else None
+        if not m or not amount:
+            tg_send(chat_id, 'Формат: /debt Имя сумма заметка\nили /pay Имя сумма')
+            return 'ok'
+        name, note = m.group(1).strip(), m.group(3).strip()
+        found = [x for x in Debtor.query.all() if name.lower() in x.name.lower()]
+        exact = [x for x in found if x.name.lower() == name.lower()]
+        found = exact or found
+        if len(found) > 1:
+            tg_send(chat_id, 'Нашлось несколько клиентов, уточните имя: ' + ', '.join(htmllib.escape(x.name) for x in found[:6]))
+            return 'ok'
+        d = found[0] if found else (find_or_create_debtor(name) if kind == 'debt' else None)
+        if not d:
+            tg_send(chat_id, 'Такого клиента нет в долгах.')
+            return 'ok'
+        add_entry(d, kind, amount, note)
+        db.session.commit()
+        tg_send(chat_id, f'{"Долг записан" if kind == "debt" else "Оплата принята"}: <b>{htmllib.escape(d.name)}</b> {money(amount)} сом\nОстаток: <b>{money(d.balance)} сом</b>')
         return 'ok'
     if msg.get('photo'):
         tg_send(chat_id, 'Смотрю на фото…')
@@ -779,6 +1079,12 @@ ERRORS = {400: ('Запрос не удался', 'Проверьте данны
 def _error(e):
     code = getattr(e, 'code', 500)
     msg, sub = ERRORS.get(code, ERRORS[500])
+    if code == 404:
+        try:
+            tags = current_theme()[0]['tags']
+            msg, sub = tags['err404'], tags['err404p']
+        except Exception:  # noqa
+            pass
     return render_template('error.html', title=str(code), code=code, msg=msg, sub=sub), code
 
 
