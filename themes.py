@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """Темы оформления: сезоны и праздники. Меняются из админки (Оформление).
 
@@ -140,6 +141,16 @@ def sc_classic():
               '<g transform="rotate(14 300 330)">' + U('pencil', 170, 300, 280, 67, '#fff') + '</g>'
               + U('book', 120, 190, 240, 200, '#fff', '#12141A', 'stroke-width="2.5"') + g
               + U('sparkle', 60, 90, 36, 36, '#2B4BFF') + U('sparkle', 440, 60, 26, 26, '#FFC83D') + U('sparkle', 452, 300, 30, 30, '#2B4BFF'), d)
+
+
+def sc_inspiration():
+    d, g = GR('#E9D5FF', '#C4B5FD')
+    return SC('<circle cx="300" cy="200" r="200" fill="url(#gl)"/><circle cx="300" cy="200" r="140" fill="#7C3AED" opacity=".32"/>'
+              '<g transform="rotate(-16 300 140)">' + U('pencil', 150, 100, 280, 68, '#F472B6') + '</g>'
+              '<g transform="rotate(12 300 320)">' + U('pencil', 170, 290, 260, 62, '#A78BFA') + '</g>'
+              + U('book', 120, 180, 240, 200, '#fff', '#5B21B6', 'stroke-width="2.5"') + g
+              + U('sparkle', 50, 80, 34, 34, '#EC4899') + U('sparkle', 450, 60, 26, 26, '#C4B5FD')
+              + U('sparkle', 460, 300, 30, 30, '#7C3AED') + U('star', 70, 320, 28, 28, '#F9A8D4'), GL('#E879F9', .45) + d)
 
 
 def sc_midnight():
@@ -398,6 +409,7 @@ DEF = dict(bg='#F5F6F8', bg2='#FFFFFF', sf='#FFFFFF', sf2='#F0F1F4', ink='#12141
            ls='0', hup='none', hw='800', k='.72', tile='16px', em='var(--mut)', emst='normal', lgbg='var(--pri)', lgfg='var(--onpri)', lgb='var(--pri)', yg='rgba(0,0,0,.05)')
 
 
+
 def T(id, name, group, desc, fonts, hf, bf, vars, hero, ticker_, tsym, fx, fxn, scene, yard, icon, orn, tile_kind, tags, ill, **kw):
     v = dict(DEF)
     v.update(vars)
@@ -414,6 +426,14 @@ THEMES_LIST = [
       ('Всё для учёбы,', 'работы и творчества', 'Выберите товары и оставьте предзаказ. Мы свяжемся с вами и подтвердим наличие.'),
       ['Ручки и маркеры', 'Тетради и блокноты', 'Краски и кисти', 'Всё для офиса', 'Предзаказ за минуту'], ('star', '0 0 24 24'), 'none', 0, sc_classic(), None, 'star', 'sparkle', 'fill',
       GEN_T, ('book', '0 0 60 50'), tag='Спасибо, что вы с нами'),
+    T('inspiration', 'Вдохновение', 'Базовые', 'Фиолетово-розовый «Мир Канцелярии»', [INTER, 'Manrope:wght@700;800'], 'Manrope,Inter,sans-serif', 'Inter,system-ui,sans-serif',
+      dict(bg='#FAF5FF', bg2='#FFFFFF', sf='#FFFFFF', sf2='#F5F3FF', ink='#2E1065', mut='#7C6B9A', line='#E9D5FF',
+           pri='#7C3AED', onpri='#FFFFFF', acc='#EC4899', onacc='#FFFFFF', hd='rgba(255,255,255,.94)',
+           glow='rgba(124,58,237,.28)', fx='#C4B5FD', inp='#FFFFFF', price='var(--pri)', tkbg='#5B21B6', tkfg='#FFFFFF',
+           hv='rgba(124,58,237,.22)', yg='rgba(236,72,153,.12)', em='#A855F7'),
+      ('Твое вдохновение,', 'Мир Канцелярии', 'Стильные канцтовары для учёбы, работы и твоих больших идей. Оставьте предзаказ — мы свяжемся с вами.'),
+      ['Предзаказ по Кыргызстану', 'Ручки и маркеры', 'Тетради и блокноты', 'Для творчества', 'Школьные товары'], ('sparkle', '0 0 24 24'), 'none', 0, sc_inspiration(), None, 'sparkle', 'sparkle', 'fill',
+      GEN_T, ('book', '0 0 60 50'), tag='Канцелярия которая вдохновляет'),
     T('midnight', 'Полночь', 'Базовые', 'Тёмный минимализм со звёздами', [INTER, 'Manrope:wght@700;800'], 'Manrope,Inter,sans-serif', 'Inter,system-ui,sans-serif',
       dict(bg='#0B0C10', bg2='#1B1E2E', sf='#13151B', sf2='#1A1D27', ink='#ECEEF4', mut='#8D93A8', line='#262A38', pri='#6C7BFF', acc='#6C7BFF', onacc='#fff', hd='rgba(11,12,16,.9)',
            inp='#0B0C10', fx='#cfd6ff', tkbg='#13151B', tkfg='#ECEEF4', hv='rgba(108,123,255,.35)', glow='rgba(108,123,255,.25)', yg='rgba(120,140,255,.10)', em='#8D93A8'),
@@ -501,6 +521,7 @@ GROUPS = ['Базовые', 'Сезоны', 'Праздники']
 
 # ============================ Дополнительный CSS тем ============================
 CSS_EXTRA = {
+    'inspiration': '.hero h1 em{color:var(--em)}.pc{border-radius:18px}.btn,button.btn,.cta{border-radius:999px}',
     'halloween': '''
 .sky{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:35}
 .fb{position:absolute;left:0;width:44px;height:22px;opacity:.8;animation:fly 28s linear infinite}
