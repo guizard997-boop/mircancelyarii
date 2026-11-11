@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """Темы оформления: сезоны и праздники. Меняются из админки (Оформление).
 
@@ -144,13 +143,14 @@ def sc_classic():
 
 
 def sc_inspiration():
-    d, g = GR('#E9D5FF', '#C4B5FD')
-    return SC('<circle cx="300" cy="200" r="200" fill="url(#gl)"/><circle cx="300" cy="200" r="140" fill="#7C3AED" opacity=".32"/>'
-              '<g transform="rotate(-16 300 140)">' + U('pencil', 150, 100, 280, 68, '#F472B6') + '</g>'
-              '<g transform="rotate(12 300 320)">' + U('pencil', 170, 290, 260, 62, '#A78BFA') + '</g>'
-              + U('book', 120, 180, 240, 200, '#fff', '#5B21B6', 'stroke-width="2.5"') + g
-              + U('sparkle', 50, 80, 34, 34, '#EC4899') + U('sparkle', 450, 60, 26, 26, '#C4B5FD')
-              + U('sparkle', 460, 300, 30, 30, '#7C3AED') + U('star', 70, 320, 28, 28, '#F9A8D4'), GL('#E879F9', .45) + d)
+    d, g = GR('#F5F3FF', '#E9D5FF')
+    return SC('<circle cx="300" cy="200" r="210" fill="url(#gl)"/><circle cx="300" cy="200" r="145" fill="#7C3AED" opacity=".28"/>'
+              '<g transform="rotate(-18 300 150)">' + U('pencil', 150, 110, 300, 72, '#F472B6') + '</g>'
+              '<g transform="rotate(14 300 330)">' + U('pencil', 170, 300, 280, 67, '#A78BFA') + '</g>'
+              + U('book', 120, 190, 240, 200, '#fff', '#5B21B6', 'stroke-width="2.5"') + g
+              + U('sparkle', 60, 90, 36, 36, '#EC4899') + U('sparkle', 440, 60, 26, 26, '#C4B5FD')
+              + U('sparkle', 452, 300, 30, 30, '#7C3AED') + U('star', 70, 320, 28, 28, '#F9A8D4'), GL('#E879F9', .4) + d)
+
 
 
 def sc_midnight():
@@ -430,9 +430,9 @@ THEMES_LIST = [
       dict(bg='#FAF5FF', bg2='#FFFFFF', sf='#FFFFFF', sf2='#F5F3FF', ink='#2E1065', mut='#7C6B9A', line='#E9D5FF',
            pri='#7C3AED', onpri='#FFFFFF', acc='#EC4899', onacc='#FFFFFF', hd='rgba(255,255,255,.94)',
            glow='rgba(124,58,237,.28)', fx='#C4B5FD', inp='#FFFFFF', price='var(--pri)', tkbg='#5B21B6', tkfg='#FFFFFF',
-           hv='rgba(124,58,237,.22)', yg='rgba(236,72,153,.12)', em='#A855F7'),
+           hv='rgba(124,58,237,.22)', yg='rgba(236,72,153,.12)', em='#A855F7', r='999px', rc='18px', tile='18px'),
       ('Твое вдохновение,', 'Мир Канцелярии', 'Стильные канцтовары для учёбы, работы и твоих больших идей. Оставьте предзаказ — мы свяжемся с вами.'),
-      ['Предзаказ по Кыргызстану', 'Ручки и маркеры', 'Тетради и блокноты', 'Для творчества', 'Школьные товары'], ('sparkle', '0 0 24 24'), 'none', 0, sc_inspiration(), None, 'sparkle', 'sparkle', 'fill',
+      ['Предзаказ без лишних шагов', 'Ручки и маркеры', 'Тетради и блокноты', 'Для творчества', 'Школьные товары'], ('sparkle', '0 0 24 24'), 'none', 0, sc_inspiration(), None, 'sparkle', 'sparkle', 'fill',
       GEN_T, ('book', '0 0 60 50'), tag='Канцелярия которая вдохновляет'),
     T('midnight', 'Полночь', 'Базовые', 'Тёмный минимализм со звёздами', [INTER, 'Manrope:wght@700;800'], 'Manrope,Inter,sans-serif', 'Inter,system-ui,sans-serif',
       dict(bg='#0B0C10', bg2='#1B1E2E', sf='#13151B', sf2='#1A1D27', ink='#ECEEF4', mut='#8D93A8', line='#262A38', pri='#6C7BFF', acc='#6C7BFF', onacc='#fff', hd='rgba(11,12,16,.9)',
@@ -507,7 +507,7 @@ THEMES_LIST = [
     T('independence', 'День независимости', 'Праздники', '31 августа: красный и жёлтый, солнце-тундук', ['Oswald:wght@500;600;700', INTER], 'Oswald,sans-serif', 'Inter,system-ui,sans-serif',
       dict(bg='#FFF6E6', bg2='#FFFFFF', sf='#FFFFFF', sf2='#FBEAC8', ink='#3A0A10', mut='#8A5A4A', line='#F2DDB4', pri='#D3202F', acc='#FFD500', onacc='#3A0A10', hd='rgba(255,246,230,.94)', fx='#E8112D',
            tkbg='#E8112D', tkfg='#FFEF00', hv='rgba(211,32,47,.3)', r='4px', rc='6px', up='uppercase', ls='.1em', hup='uppercase', tile='6px', hw='700', k='.7', em='#D3202F', yg='rgba(232,17,45,.12)'),
-      ('С Днём', 'независимости!', 'С праздником, Кыргызстан! Красивая канцелярия к торжеству: выберите и оставьте предзаказ.'),
+      ('С Днём', 'независимости!', 'С праздником! Красивая канцелярия к торжеству: выберите и оставьте предзаказ.'),
       ['С Днём независимости', 'Ала-Тоо и солнце', 'Мирного неба', 'Гордость и единство', 'Предзаказ к празднику'], ('star', '0 0 24 24'), 'confetti', 26, sc_independence(), yd_independence(), 'star', 'flagsun', 'fill', GEN_T, ('flagsun', '0 0 100 100'),
       tag='С Днём независимости', deco_extra=bunting(['#E8112D', '#FFD500']), css_key='bunting'),
     T('sale', 'Распродажа', 'Праздники', 'Яркий жёлто-чёрный стиль для акций', ['Oswald:wght@500;600;700', INTER], 'Oswald,sans-serif', 'Inter,system-ui,sans-serif',
