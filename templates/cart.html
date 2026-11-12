@@ -18,19 +18,19 @@
            onerror="this.style.background='#F5F3FF'">
       <div style="flex:1;min-width:0">
         <a href="{{ url_for('product_detail', pid=it.product.id) }}" style="font-weight:700;font-size:13px">{{ it.product.name }}</a>
-        <div class="muted">{{ '{:,.0f}'.format(it.product.price).replace(',', ' ') }} сом</div>
+        <div class="muted">{% if it.product.price|float > 0 %}{{ '{:,.0f}'.format(it.product.price).replace(',', ' ') }} сом{% else %}Цена уточняется{% endif %}</div>
       </div>
       <form action="{{ url_for('cart_update', pid=it.product.id) }}" method="post">
         <input type="number" name="qty" value="{{ it.qty }}" min="0" max="99" style="width:56px;text-align:center;padding:6px">
       </form>
-      <div style="font-weight:800;font-size:13px;min-width:64px;text-align:right">{{ '{:,.0f}'.format(it.sum).replace(',', ' ') }}</div>
+      <div style="font-weight:800;font-size:13px;min-width:64px;text-align:right">{% if it.sum|float > 0 %}{{ '{:,.0f}'.format(it.sum).replace(',', ' ') }}{% else %}—{% endif %}</div>
       <a href="{{ url_for('cart_remove', pid=it.product.id) }}" style="color:#F472B6;font-weight:700">✕</a>
     </div>
     {% endfor %}
   </div>
   <div class="flex justify-between items-center mb-4">
     <span class="muted">Итого</span>
-    <span style="font-size:24px;font-weight:800;color:var(--brand-dark)">{{ '{:,.0f}'.format(total).replace(',', ' ') }} сом</span>
+    <span style="font-size:24px;font-weight:800;color:var(--brand-dark)">{% if total|float > 0 %}{{ '{:,.0f}'.format(total).replace(',', ' ') }} сом{% else %}Цена уточняется{% endif %}</span>
   </div>
   <a href="{{ url_for('checkout') }}" class="btn btn-pink w-full">Оформить предзаказ</a>
   <p class="text-center mt-4"><a href="{{ url_for('catalog') }}" class="section-link">← Продолжить выбор</a></p>

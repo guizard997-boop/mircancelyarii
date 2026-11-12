@@ -19,7 +19,7 @@
     <select name="product_id">
       <option value="">— выбрать товар —</option>
       {% for p in products %}
-      <option value="{{ p.id }}">{{ p.name }} — {{ '{:,.0f}'.format(p.price).replace(',', ' ') }} сом</option>
+      <option value="{{ p.id }}">{{ p.name }} — {% if p.price|float > 0 %}{{ '{:,.0f}'.format(p.price).replace(',', ' ') }} сом{% else %}цена уточняется{% endif %}</option>
       {% endfor %}
     </select>
   </div>

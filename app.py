@@ -13,6 +13,7 @@ from flask import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
+from catalog_seed import CATALOG_PRODUCTS
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", _BASE)
@@ -846,6 +847,28 @@ with app.app_context():
                 ))
             db.session.commit()
             print("demo products seeded")
+
+        # Каталог из папки Google Drive: добавляем один раз, цены намеренно не задаём.
+        existing_catalog_images = {
+            p.image_url for p in Product.query.filter(Product.image_url.like("/static/img/catalog/%")).all()
+        }
+        catalog_added = 0
+        for item in CATALOG_PRODUCTS:
+            if item["image_url"] in existing_catalog_images:
+                continue
+            category = Category.query.filter_by(name=item["category"]).first()
+            db.session.add(Product(
+                name=item["name"],
+                description=item["description"],
+                price=0,
+                image_url=item["image_url"],
+                category_id=category.id if category else None,
+                in_stock=True,
+            ))
+            catalog_added += 1
+        if catalog_added:
+            db.session.commit()
+            print(f"drive catalog products seeded: {catalog_added}")
     except Exception as e:
         print("init", e)
 

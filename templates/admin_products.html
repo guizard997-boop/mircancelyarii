@@ -13,7 +13,7 @@
   <tr>
     <td><img src="{{ p.image_url or '' }}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;background:#F5F3FF"></td>
     <td style="font-weight:600">{{ p.name }}</td>
-    <td>{{ '{:,.0f}'.format(p.price).replace(',', ' ') }}</td>
+    <td>{% if p.price|float > 0 %}{{ '{:,.0f}'.format(p.price).replace(',', ' ') }}{% else %}Уточняется{% endif %}</td>
     <td>
       <a href="{{ url_for('admin_product_form', pid=p.id) }}" style="color:var(--brand-dark);font-weight:700;font-size:13px">Изм.</a>
       <form action="{{ url_for('admin_product_delete', pid=p.id) }}" method="post" style="display:inline" onsubmit="return confirm('Удалить?')">

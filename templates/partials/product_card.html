@@ -7,7 +7,7 @@
   <div class="prod-body">
     <div class="prod-name">{{ p.name }}</div>
     <div class="prod-price">
-      <span class="prod-price-now">{{ '{:,.0f}'.format(p.price).replace(',', ' ') }} сом</span>
+      {% if p.price|float > 0 %}<span class="prod-price-now">{{ '{:,.0f}'.format(p.price).replace(',', ' ') }} сом</span>{% else %}<span class="prod-price-now">Цена уточняется</span>{% endif %}
     </div>
   </div>
 </a>

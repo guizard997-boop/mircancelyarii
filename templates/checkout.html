@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container" style="max-width:440px">
   <h1 class="section-title mb-2">Оформление предзаказа</h1>
-  <p class="muted mb-4">Итого: <b style="color:var(--brand-dark)">{{ '{:,.0f}'.format(total).replace(',', ' ') }} сом</b></p>
+  <p class="muted mb-4">Итого: <b style="color:var(--brand-dark)">{% if total|float > 0 %}{{ '{:,.0f}'.format(total).replace(',', ' ') }} сом{% else %}цена уточняется{% endif %}</b></p>
   <form method="post" class="panel" style="display:flex;flex-direction:column;gap:14px">
     <div>
       <label>Имя</label>

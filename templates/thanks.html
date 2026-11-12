@@ -6,7 +6,7 @@
     <div style="font-size:48px;margin-bottom:8px">✅</div>
     <h1 class="section-title mb-2">Предзаказ №{{ order.id }} принят</h1>
     <p class="muted mb-3">Мы свяжемся по телефону <b>{{ order.customer_phone }}</b></p>
-    <p style="font-weight:800;color:var(--brand-dark);margin-bottom:20px">К оплате: {{ '{:,.0f}'.format(order.total_price).replace(',', ' ') }} сом</p>
+    <p style="font-weight:800;color:var(--brand-dark);margin-bottom:20px">К оплате: {% if order.total_price|float > 0 %}{{ '{:,.0f}'.format(order.total_price).replace(',', ' ') }} сом{% else %}цена уточняется менеджером{% endif %}</p>
   </div>
 
   <div class="panel" style="margin-bottom:16px">
