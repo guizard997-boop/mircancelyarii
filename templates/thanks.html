@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Оплата — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:520px;padding-top:40px">
+  <div class="text-center">
+    <div style="font-size:48px;margin-bottom:8px">✅</div>
+    <h1 class="section-title mb-2">Предзаказ №{{ order.id }} принят</h1>
+    <p class="muted mb-3">Мы свяжемся по телефону <b>{{ order.customer_phone }}</b></p>
+    <p style="font-weight:800;color:var(--brand-dark);margin-bottom:20px">К оплате: {{ '{:,.0f}'.format(order.total_price).replace(',', ' ') }} сом</p>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px">
+    <div style="font-weight:800;margin-bottom:10px;color:var(--brand-dark)">💳 Оплатите заказ</div>
+    <p class="muted" style="margin-bottom:14px;line-height:1.5">После оплаты статус заявки обновим в админке. Без оплаты заказ не собирается.</p>
+
+    {% if methods %}
+      {% for m in methods %}
+      <div style="border:1px solid #E9D5FF;border-radius:14px;padding:14px;margin-bottom:12px">
+        <div style="font-weight:800;margin-bottom:6px">{{ m.title }}</div>
+        {% if m.details %}<pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--muted);margin:0 0 10px">{{ m.details }}</pre>{% endif %}
+        {% if m.qr_url %}
+        <img src="{{ m.qr_url }}" alt="QR" style="width:140px;height:140px;object-fit:contain;border-radius:10px;background:#fff;margin-bottom:10px">
+        {% endif %}
+        {% if m.link_url %}
+        <a class="btn w-full" href="{{ m.link_url }}" target="_blank" rel="noopener">Оплатить — {{ m.title }}</a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+      {% if payment_link_1 or payment_link_2 %}
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
+          {% if payment_link_1 %}<a class="btn w-full" href="{{ payment_link_1 }}" target="_blank" rel="noopener">{{ payment_link_1_label }}</a>{% endif %}
+          {% if payment_link_2 %}<a class="btn btn-pink w-full" href="{{ payment_link_2 }}" target="_blank" rel="noopener">{{ payment_link_2_label }}</a>{% endif %}
+        </div>
+      {% endif %}
+      <p class="muted" style="line-height:1.5">{{ payment_info }}</p>
+    {% endif %}
+  </div>
+
+  <div class="text-center">
+    <a href="{{ url_for('catalog') }}" class="btn btn-white">В каталог</a>
+  </div>
+</div>
+{% endblock %}

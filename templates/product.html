@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }} — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="product-layout">
+  <div class="product-gallery">
+    <img src="{{ product.image_url or 'https://placehold.co/600x600/f5f3ff/7c3aed?text=+' }}" alt="{{ product.name }}"
+         onerror="this.src='https://placehold.co/600x600/f5f3ff/7c3aed?text=+'">
+  </div>
+  <div>
+    {% if product.category %}
+    <span class="chip" style="margin-bottom:12px">{{ product.category.name }}</span>
+    {% endif %}
+    <h1 style="font-size:28px;font-weight:800;margin:8px 0 12px">{{ product.name }}</h1>
+    <div style="font-size:28px;font-weight:800;color:var(--brand-dark);margin-bottom:16px">
+      {{ '{:,.0f}'.format(product.price).replace(',', ' ') }} сом
+    </div>
+    <div class="muted" style="line-height:1.6;margin-bottom:24px">
+      {{ product.description or 'Описание появится позже.' }}
+    </div>
+    <form action="{{ url_for('cart_add', pid=product.id) }}" method="post" class="flex gap-2 items-center flex-wrap">
+      <input type="number" name="qty" value="1" min="1" max="99" style="width:80px;text-align:center">
+      <button class="btn btn-pink" type="submit">В предзаказ</button>
+      <a href="{{ url_for('catalog') }}" class="section-link">← В каталог</a>
+    </form>
+    <p class="muted" style="margin-top:16px;font-size:12px">Только предзаказ · Без доставки на сайте · Мы свяжемся с вами</p>
+  </div>
+</div>
+{% endblock %}

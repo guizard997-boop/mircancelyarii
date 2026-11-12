@@ -1,0 +1,48 @@
+{% extends "admin_base.html" %}
+{% block title %}Оплата — админ{% endblock %}
+{% block admin %}
+<h1 class="section-title mb-2">Способы оплаты</h1>
+<p class="muted mb-4">Клиент увидит их после предзаказа. Можно добавить реквизиты, QR и ссылку.</p>
+
+{% for m in methods %}
+<div class="panel mb-4">
+  <div class="flex justify-between items-center flex-wrap gap-2">
+    <div style="font-weight:800">{{ m.title }} {% if not m.active %}<span class="muted">(скрыт)</span>{% endif %}</div>
+    <div class="flex gap-2 flex-wrap">
+      <a class="btn btn-sm" href="{{ url_for('admin_payments', edit=m.id) }}" style="background:#6B7280">Изменить</a>
+      <form method="post" action="{{ url_for('admin_payment_toggle', pid=m.id) }}"><button class="btn btn-sm" type="submit" style="background:#0891B2">{{ 'Скрыть' if m.active else 'Показать' }}</button></form>
+      <form method="post" action="{{ url_for('admin_payment_delete', pid=m.id) }}" onsubmit="return confirm('Удалить?')"><button type="submit" style="background:none;border:0;color:#E11D48;font-weight:700;cursor:pointer">Удалить</button></form>
+    </div>
+  </div>
+  {% if m.details %}<pre class="muted" style="margin-top:8px;white-space:pre-wrap;font-family:inherit">{{ m.details }}</pre>{% endif %}
+  {% if m.link_url %}<p class="muted" style="margin-top:6px"><a href="{{ m.link_url }}" target="_blank">{{ m.link_url }}</a></p>{% endif %}
+</div>
+{% else %}
+<p class="muted mb-4">Пока нет способов оплаты — добавьте ниже.</p>
+{% endfor %}
+
+<form class="panel" method="post" action="{{ url_for('admin_payment_save') }}" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:12px;max-width:480px">
+  <h3 style="font-weight:800">{{ 'Изменить' if edit else 'Новый способ' }}</h3>
+  <input type="hidden" name="id" value="{{ edit.id if edit else '' }}">
+  <div>
+    <label>Название</label>
+    <input name="title" required value="{{ edit.title if edit else '' }}" placeholder="MBank / O! / Карта">
+  </div>
+  <div>
+    <label>Реквизиты</label>
+    <textarea name="details" rows="3" placeholder="Номер карты, получатель...">{{ edit.details if edit else '' }}</textarea>
+  </div>
+  <div>
+    <label>Ссылка на оплату</label>
+    <input name="link_url" value="{{ edit.link_url if edit else '' }}" placeholder="https://...">
+  </div>
+  <div>
+    <label>QR (фото)</label>
+    <input type="file" name="qr" accept="image/*">
+    {% if edit and edit.qr_url %}<label class="muted" style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" name="remove_qr" style="width:auto"> Удалить QR</label>{% endif %}
+  </div>
+  <label class="muted" style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="active" style="width:auto" {% if not edit or edit.active %}checked{% endif %}> Показывать клиентам</label>
+  <button class="btn" type="submit">Сохранить</button>
+  {% if edit %}<a href="{{ url_for('admin_payments') }}" class="muted">Отмена</a>{% endif %}
+</form>
+{% endblock %}

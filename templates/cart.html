@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Корзина — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:640px">
+  <h1 class="section-title mb-4">Ваш предзаказ</h1>
+  {% if not items %}
+  <div class="panel text-center" style="padding:48px 20px">
+    <div style="font-size:48px;margin-bottom:12px">🛒</div>
+    <p style="font-weight:800;margin-bottom:8px">Предзаказ пуст</p>
+    <p class="muted mb-4">Добавьте товары из каталога</p>
+    <a href="{{ url_for('catalog') }}" class="btn">В каталог</a>
+  </div>
+  {% else %}
+  <div class="panel" style="padding:8px 16px;margin-bottom:16px">
+    {% for it in items %}
+    <div class="flex items-center gap-2" style="padding:12px 0;border-bottom:1px solid #F3E8FF">
+      <img src="{{ it.product.image_url or '' }}" alt="" style="width:56px;height:56px;border-radius:12px;object-fit:cover;background:#F5F3FF"
+           onerror="this.style.background='#F5F3FF'">
+      <div style="flex:1;min-width:0">
+        <a href="{{ url_for('product_detail', pid=it.product.id) }}" style="font-weight:700;font-size:13px">{{ it.product.name }}</a>
+        <div class="muted">{{ '{:,.0f}'.format(it.product.price).replace(',', ' ') }} сом</div>
+      </div>
+      <form action="{{ url_for('cart_update', pid=it.product.id) }}" method="post">
+        <input type="number" name="qty" value="{{ it.qty }}" min="0" max="99" style="width:56px;text-align:center;padding:6px">
+      </form>
+      <div style="font-weight:800;font-size:13px;min-width:64px;text-align:right">{{ '{:,.0f}'.format(it.sum).replace(',', ' ') }}</div>
+      <a href="{{ url_for('cart_remove', pid=it.product.id) }}" style="color:#F472B6;font-weight:700">✕</a>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="flex justify-between items-center mb-4">
+    <span class="muted">Итого</span>
+    <span style="font-size:24px;font-weight:800;color:var(--brand-dark)">{{ '{:,.0f}'.format(total).replace(',', ' ') }} сом</span>
+  </div>
+  <a href="{{ url_for('checkout') }}" class="btn btn-pink w-full">Оформить предзаказ</a>
+  <p class="text-center mt-4"><a href="{{ url_for('catalog') }}" class="section-link">← Продолжить выбор</a></p>
+  {% endif %}
+</div>
+{% endblock %}

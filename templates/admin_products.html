@@ -1,0 +1,30 @@
+{% extends "admin_base.html" %}
+{% block title %}Товары — админ{% endblock %}
+{% block admin %}
+<div class="flex justify-between items-center mb-4">
+  <h1 class="section-title">Товары</h1>
+  <a href="{{ url_for('admin_product_form') }}" class="btn btn-sm">+ Добавить</a>
+</div>
+<div class="panel" style="overflow-x:auto">
+<table>
+  <thead><tr><th></th><th>Название</th><th>Цена</th><th></th></tr></thead>
+  <tbody>
+  {% for p in products %}
+  <tr>
+    <td><img src="{{ p.image_url or '' }}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;background:#F5F3FF"></td>
+    <td style="font-weight:600">{{ p.name }}</td>
+    <td>{{ '{:,.0f}'.format(p.price).replace(',', ' ') }}</td>
+    <td>
+      <a href="{{ url_for('admin_product_form', pid=p.id) }}" style="color:var(--brand-dark);font-weight:700;font-size:13px">Изм.</a>
+      <form action="{{ url_for('admin_product_delete', pid=p.id) }}" method="post" style="display:inline" onsubmit="return confirm('Удалить?')">
+        <button type="submit" style="background:none;border:0;color:#E11D48;font-weight:700;cursor:pointer;font-size:13px">Удал.</button>
+      </form>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" class="text-center muted" style="padding:32px">Пусто</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

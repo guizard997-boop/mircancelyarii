@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Оформление — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:440px">
+  <h1 class="section-title mb-2">Оформление предзаказа</h1>
+  <p class="muted mb-4">Итого: <b style="color:var(--brand-dark)">{{ '{:,.0f}'.format(total).replace(',', ' ') }} сом</b></p>
+  <form method="post" class="panel" style="display:flex;flex-direction:column;gap:14px">
+    <div>
+      <label>Имя</label>
+      <input name="name" required placeholder="Как к вам обращаться">
+    </div>
+    <div>
+      <label>Телефон</label>
+      <input name="phone" required placeholder="+996 ..." inputmode="tel">
+    </div>
+    <div>
+      <label>Комментарий</label>
+      <textarea name="comment" rows="2" placeholder="Необязательно"></textarea>
+    </div>
+    <p class="muted" style="font-size:12px;line-height:1.45">После заявки откроется страница оплаты — реквизиты и кнопка «Оплатить».</p>
+    <button class="btn btn-pink w-full" type="submit">Оформить и перейти к оплате</button>
+  </form>
+</div>
+{% endblock %}

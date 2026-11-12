@@ -1,0 +1,28 @@
+{% extends "admin_base.html" %}
+{% block title %}Организации{% endblock %}
+{% block admin %}
+<div class="flex justify-between items-center mb-4">
+  <h1 class="section-title">Организации</h1>
+  <a href="{{ url_for('admin_org_form') }}" class="btn btn-sm">+ Добавить</a>
+</div>
+<div class="panel" style="overflow-x:auto">
+<table>
+  <thead><tr><th>Название</th><th>Телефон</th><th>Долг</th><th></th></tr></thead>
+  <tbody>
+  {% for o in orgs %}
+  <tr>
+    <td style="font-weight:600">{{ o.name }}</td>
+    <td class="muted">{{ o.phone or '—' }}</td>
+    <td style="font-weight:700;color:{% if o.open_debt %}#DC2626{% else %}#C4B5FD{% endif %}">{{ '{:,.0f}'.format(o.open_debt).replace(',', ' ') }}</td>
+    <td>
+      <a href="{{ url_for('admin_debts', org=o.id) }}" style="color:var(--brand-dark);font-weight:700;font-size:13px">Долги</a>
+      <a href="{{ url_for('admin_org_form', oid=o.id) }}" style="color:var(--brand-dark);font-weight:700;font-size:13px;margin-left:8px">Изм.</a>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" class="text-center muted" style="padding:32px">Пусто</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

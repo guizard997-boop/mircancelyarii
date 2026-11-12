@@ -1,0 +1,24 @@
+{% extends "admin_base.html" %}
+{% block title %}Товар — админ{% endblock %}
+{% block admin %}
+<h1 class="section-title mb-4">{% if product %}Изменить{% else %}Новый{% endif %} товар</h1>
+<form method="post" enctype="multipart/form-data" class="panel" style="max-width:420px;display:flex;flex-direction:column;gap:12px">
+  <input name="name" required value="{{ product.name if product else '' }}" placeholder="Название">
+  <input name="price" type="number" step="0.01" value="{{ product.price if product else '' }}" placeholder="Цена (сом)">
+  <select name="category_id">
+    <option value="">— без категории —</option>
+    {% for c in categories %}
+    <option value="{{ c.id }}" {% if product and product.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+  <textarea name="description" rows="3" placeholder="Описание">{{ product.description if product else '' }}</textarea>
+  <div>
+    <label>Фото</label>
+    <input type="file" name="image" accept="image/*">
+  </div>
+  <label style="display:flex;align-items:center;gap:8px;font-weight:600">
+    <input type="checkbox" name="in_stock" value="1" {% if not product or product.in_stock %}checked{% endif %} style="width:auto"> В наличии
+  </label>
+  <button class="btn w-full" type="submit">Сохранить</button>
+</form>
+{% endblock %}

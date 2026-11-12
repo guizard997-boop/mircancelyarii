@@ -1,0 +1,11 @@
+{% extends "admin_base.html" %}
+{% block title %}Организация{% endblock %}
+{% block admin %}
+<h1 class="section-title mb-4">{% if org %}Изменить{% else %}Новая{% endif %} организация</h1>
+<form method="post" class="panel" style="max-width:420px;display:flex;flex-direction:column;gap:12px">
+  <input name="name" required value="{{ org.name if org else '' }}" placeholder="Название">
+  <input name="phone" value="{{ org.phone if org else '' }}" placeholder="Телефон">
+  <textarea name="note" rows="2" placeholder="Заметка">{{ org.note if org else '' }}</textarea>
+  <button class="btn w-full" type="submit">Сохранить</button>
+</form>
+{% endblock %}
