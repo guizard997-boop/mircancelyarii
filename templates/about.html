@@ -2,14 +2,15 @@
 {% block title %}О нас — {{ site_name }}{% endblock %}
 {% block content %}
 <div class="container" style="max-width:640px">
-  <h1 class="section-title mb-4">О нас</h1>
-  <div class="panel">
-    <p class="script" style="font-size:28px;color:var(--brand);margin:0 0 12px">Мир Канцелярии</p>
-    <p style="line-height:1.7;color:rgba(46,16,101,0.75)">
-      Стильные канцтовары для учёбы, работы и творчества. Работаем по предзаказу —
-      оставьте заявку на сайте, и мы свяжемся с вами.
+  <h1 class="section-title mb-4">О магазине</h1>
+  <div class="panel" style="line-height:1.65">
+    <p style="margin-bottom:12px"><b>Мир канцелярии</b> — магазин товаров для учёбы, работы и творчества.</p>
+    <p class="muted" style="margin-bottom:12px">
+      Работаем по предзаказу: вы выбираете товары в каталоге, оставляете заявку и оплачиваете удобным способом.
+      Мы подтверждаем наличие и связываемся с вами.
     </p>
-    {% if phone %}<p style="margin-top:16px"><a href="tel:{{ phone }}" class="btn btn-sm">{{ phone }}</a></p>{% endif %}
+    <p class="muted">В ассортименте — ручки, тетради, рюкзаки, товары для рисования и офиса.</p>
+    {% if phone %}<p style="margin-top:16px">Связь: <a href="tel:{{ phone }}"><b>{{ phone }}</b></a></p>{% endif %}
   </div>
 </div>
 {% endblock %}

@@ -37,10 +37,11 @@ app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 db = SQLAlchemy(app)
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+ADMIN_GATE = os.environ.get("ADMIN_GATE", "mir-secret-enter").strip()
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 ADMIN_IDS = [x.strip() for x in os.environ.get("TELEGRAM_ADMIN_IDS", "").split(",") if x.strip()]
 API_SECRET = os.environ.get("API_SECRET", "mir-api-secret-2026")
-SITE_NAME = os.environ.get("SITE_NAME", "Мир Канцелярии")
+SITE_NAME = os.environ.get("SITE_NAME", "Мир канцелярии")
 SITE_PHONE = os.environ.get("SITE_PHONE", "")
 PAYMENT_INFO = os.environ.get(
     "PAYMENT_INFO",
@@ -51,7 +52,8 @@ PAYMENT_LINK_2 = os.environ.get("PAYMENT_LINK_2", "").strip()
 PAYMENT_LINK_1_LABEL = os.environ.get("PAYMENT_LINK_1_LABEL", "Оплатить (ссылка 1)").strip()
 PAYMENT_LINK_2_LABEL = os.environ.get("PAYMENT_LINK_2_LABEL", "Оплатить (ссылка 2)").strip()
 SITE_TAGLINE = os.environ.get(
-    "SITE_TAGLINE", "Стильные канцтовары для учёбы, работы и твоих больших идей"
+    "SITE_TAGLINE",
+    "Канцтовары для школы, офиса и творчества. Оформите предзаказ — мы подтвердим наличие и способ оплаты."
 )
 ALLOWED_EXT = {"png", "jpg", "jpeg", "gif", "webp"}
 
@@ -217,7 +219,7 @@ def admin_required(f):
     @wraps(f)
     def w(*a, **k):
         if not session.get("admin"):
-            return redirect(url_for("admin_login"))
+            return redirect(url_for("index"))
         return f(*a, **k)
     return w
 
@@ -283,6 +285,10 @@ def index():
 @app.route("/catalog")
 def catalog():
     q = request.args.get("q", "").strip()
+    # скрытый вход в админку: особое слово в поиске (ADMIN_GATE)
+    if ADMIN_GATE and q and q.strip().lower() == ADMIN_GATE.lower():
+        session["admin"] = True
+        return redirect(url_for("admin_dashboard"))
     cat_id = request.args.get("category", type=int)
     query = Product.query
     if q:
@@ -432,14 +438,10 @@ def order_done(oid, token):
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin_login():
+    """Вход только через особое слово в поиске (ADMIN_GATE). Страницы пароля нет."""
     if session.get("admin"):
         return redirect(url_for("admin_dashboard"))
-    if request.method == "POST":
-        if request.form.get("password") == ADMIN_PASSWORD:
-            session["admin"] = True
-            return redirect(url_for("admin_dashboard"))
-        flash("Неверный пароль", "danger")
-    return render_template("admin_login.html")
+    return redirect(url_for("index"))
 
 
 @app.route("/admin/logout")
@@ -803,6 +805,47 @@ with app.app_context():
             if n not in existing:
                 db.session.add(Category(name=n))
         db.session.commit()
+
+        # демо-товары с фото (один раз, если каталог пуст)
+        if Product.query.count() == 0:
+            demo = [
+                ("Набор гелевых ручек 12 шт", "Письменные принадлежности", 180,
+                 "Яркий набор гелевых ручек для школы и заметок. Пишут мягко, не мажутся.",
+                 "pens.jpg"),
+                ("Скетчбук А5 на пружине", "Тетради и блокноты", 250,
+                 "Плотная бумага 120 г/м², удобен для набросков и ежедневных записей.",
+                 "notebook.jpg"),
+                ("Набор маркеров 6 цветов", "Для творчества", 320,
+                 "Акриловые маркеры для бумаги, дерева и пластика. Насыщенный цвет.",
+                 "markers.jpg"),
+                ("Рюкзак школьный", "Рюкзаки и сумки", 1890,
+                 "Лёгкий рюкзак с отделением для тетрадей и карманом для бутылки.",
+                 "backpack.jpg"),
+                ("Набор карандашей HB–6B", "Карандаши и грифели", 150,
+                 "Графитные карандаши разной мягкости для учёбы и рисования.",
+                 "pencils.jpg"),
+                ("Степлер металлический", "Офисные товары", 220,
+                 "Надёжный степлер для бумаги, скобы №24/6 в комплекте не входят.",
+                 "stapler.jpg"),
+                ("Набор красок гуашь 12 цв", "Краски и кисти", 280,
+                 "Гуашь для уроков ИЗО и творчества дома. Яркие цвета, удобные баночки.",
+                 "paints.jpg"),
+                ("Стикеры-закладки набор", "Стикеры и закладки", 90,
+                 "Клейкие закладки разных цветов для учебников и документов.",
+                 "sticky.jpg"),
+            ]
+            for name, cat_name, price, desc, img in demo:
+                cat = Category.query.filter_by(name=cat_name).first()
+                db.session.add(Product(
+                    name=name,
+                    description=desc,
+                    price=price,
+                    image_url=f"/static/img/products/{img}",
+                    category_id=cat.id if cat else None,
+                    in_stock=True,
+                ))
+            db.session.commit()
+            print("demo products seeded")
     except Exception as e:
         print("init", e)
 

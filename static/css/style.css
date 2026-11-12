@@ -102,9 +102,9 @@ button, input, select, textarea { font-family: inherit; }
 }
 
 .header-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
-.search-form { display: none; }
+.search-form { display: block; width: 140px; }
 @media (min-width: 720px) {
-  .search-form { display: block; width: 200px; }
+  .search-form { width: 200px; }
 }
 .search-form input {
   width: 100%;
