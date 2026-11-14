@@ -159,6 +159,14 @@ class Setting(db.Model):
     value = db.Column(db.Text, default="")
 
 
+class BotState(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    chat_id = db.Column(db.String(50), unique=True, nullable=False)
+    step = db.Column(db.String(40), default="idle")  # idle | wait_price | wait_rename | wait_name_photo
+    product_id = db.Column(db.Integer, nullable=True)
+    draft_image = db.Column(db.String(500), default="")
+
+
 
 def get_setting(key, default=""):
     s = Setting.query.filter_by(key=key).first()
@@ -792,7 +800,7 @@ with app.app_context():
         # soft migrate payment_method for old SQLite DBs
         try:
             from sqlalchemy import text as sql_text
-            cols = [r[1] for r in db.session.execute(sql_text("PRAGMA table_info(order)")).fetchall()]
+            cols = [r[1] for r in db.session.execute(sql_text("PRAGMA table_info('order')")).fetchall()]
             if "token" not in cols:
                 db.session.execute(sql_text("ALTER TABLE 'order' ADD COLUMN token VARCHAR(40) DEFAULT ''"))
                 db.session.commit()
@@ -847,8 +855,7 @@ with app.app_context():
                 ))
             db.session.commit()
             print("demo products seeded")
-
-        # Каталог из папки Google Drive: добавляем один раз, цены намеренно не задаём.
+        # Каталог товаров сохраняется из catalog_seed.py и добавляется без удаления существующих позиций.
         existing_catalog_images = {
             p.image_url for p in Product.query.filter(Product.image_url.like("/static/img/catalog/%")).all()
         }
@@ -868,9 +875,366 @@ with app.app_context():
             catalog_added += 1
         if catalog_added:
             db.session.commit()
-            print(f"drive catalog products seeded: {catalog_added}")
+            print(f"catalog products seeded: {catalog_added}")
     except Exception as e:
         print("init", e)
+
+
+
+
+# ============================ TELEGRAM BOT ============================
+def tg_api(method, **payload):
+    if not TELEGRAM_TOKEN:
+        return {}
+    try:
+        r = requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/{method}",
+            json=payload,
+            timeout=30,
+        )
+        return r.json()
+    except Exception as e:
+        print("tg_api", e)
+        return {}
+
+
+def tg_is_admin(chat_id):
+    return str(chat_id) in [str(x) for x in ADMIN_IDS]
+
+
+def bot_state(chat_id):
+    st = BotState.query.filter_by(chat_id=str(chat_id)).first()
+    if not st:
+        st = BotState(chat_id=str(chat_id), step="idle")
+        db.session.add(st)
+        db.session.commit()
+    return st
+
+
+def pending_products():
+    """Товары без цены или скрытые — ждут разметки в боте."""
+    return (
+        Product.query.filter(
+            db.or_(Product.price <= 0, Product.in_stock.is_(False))
+        )
+        .order_by(Product.created_at.asc())
+        .all()
+    )
+
+
+def product_keyboard(pid):
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "💰 Цена", "callback_data": f"price:{pid}"},
+                {"text": "✏️ Имя", "callback_data": f"rename:{pid}"},
+            ],
+            [
+                {"text": "🗑 Удалить", "callback_data": f"del:{pid}"},
+                {"text": "⏭ Далее", "callback_data": f"next:{pid}"},
+            ],
+            [{"text": "✅ В каталог (как есть)", "callback_data": f"publish:{pid}"}],
+        ]
+    }
+
+
+def resolve_product_image_path(p):
+    """Локальный путь к файлу фото товара или None."""
+    img = (p.image_url or "").strip()
+    if not img:
+        return None
+    # /uploads/xxx.jpg
+    if img.startswith("/uploads/"):
+        local = os.path.join(UPLOAD, img.split("/uploads/")[-1])
+        if os.path.isfile(local):
+            return local
+    # /static/img/products/xxx.jpg
+    if img.startswith("/static/"):
+        local = os.path.join(_BASE, img.lstrip("/").replace("/", os.sep))
+        if os.path.isfile(local):
+            return local
+        # alternate under static/
+        local2 = os.path.join(_BASE, "static", img.split("/static/")[-1])
+        if os.path.isfile(local2):
+            return local2
+    # bare filename in uploads
+    local = os.path.join(UPLOAD, os.path.basename(img))
+    if os.path.isfile(local):
+        return local
+    return None
+
+
+def tg_send_photo(chat_id, photo, caption="", reply_markup=None):
+    """photo: путь к файлу, http(s) URL или file_id."""
+    if not TELEGRAM_TOKEN:
+        return {}
+    data = {"chat_id": chat_id, "caption": caption[:1024], "parse_mode": "HTML"}
+    if reply_markup:
+        import json as _json
+        data["reply_markup"] = _json.dumps(reply_markup)
+    try:
+        if isinstance(photo, str) and os.path.isfile(photo):
+            with open(photo, "rb") as f:
+                r = requests.post(
+                    f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
+                    data=data,
+                    files={"photo": f},
+                    timeout=60,
+                )
+            return r.json()
+        data["photo"] = photo
+        r = requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
+            data={k: v for k, v in data.items()},
+            timeout=30,
+        )
+        # reply_markup as json in form
+        return r.json()
+    except Exception as e:
+        print("tg_send_photo", e)
+        return {}
+
+
+def send_product_card(chat_id, p):
+    price_txt = f"{p.price:,.0f} сом".replace(",", " ") if p.price and p.price > 0 else "без цены"
+    status = "в каталоге" if p.in_stock and p.price > 0 else "черновик"
+    caption = "<b>%s</b>\nID: %s\nЦена: %s\nСтатус: %s\n\nНажмите «Цена» и пришлите число, или «Имя» / «Удалить»." % (p.name, p.id, price_txt, status)
+    kb = product_keyboard(p.id)
+    local = resolve_product_image_path(p)
+    if local:
+        r = tg_send_photo(chat_id, local, caption=caption, reply_markup=kb)
+        if r.get("ok"):
+            return r
+    img = (p.image_url or "").strip()
+    if img.startswith("/uploads/") or img.startswith("/static/"):
+        base = os.environ.get("SITE_URL", "").rstrip("/")
+        if base:
+            img = base + img
+    if img.startswith("http://") or img.startswith("https://"):
+        r = tg_send_photo(chat_id, img, caption=caption, reply_markup=kb)
+        if r.get("ok"):
+            return r
+    extra = "\n\n⚠️ Фото не найдено на сервере" if p.image_url else ""
+    return tg_api("sendMessage", chat_id=chat_id, text=caption + extra, parse_mode="HTML", reply_markup=kb)
+
+
+def send_next_pending(chat_id, after_id=None):
+    items = pending_products()
+    if after_id:
+        rest = [p for p in items if p.id != after_id]
+        # prefer next after current in list order
+        ids = [p.id for p in items]
+        if after_id in ids:
+            i = ids.index(after_id)
+            rest = items[i + 1 :] + items[:i]
+        items = rest if rest else []
+    if not items:
+        tg_api(
+            "sendMessage",
+            chat_id=chat_id,
+            text="✅ Очередь пуста. Все товары с ценой и в каталоге.\n\n"
+            "Пришлите <b>фото</b> — создам новый товар, потом зададите имя и цену.",
+            parse_mode="HTML",
+        )
+        return
+    p = items[0]
+    send_product_card(chat_id, p)
+
+
+@app.route("/telegram-webhook", methods=["POST"])
+def telegram_webhook():
+    data = request.get_json(silent=True) or {}
+    # callback buttons
+    if "callback_query" in data:
+        cq = data["callback_query"]
+        chat_id = cq.get("message", {}).get("chat", {}).get("id")
+        uid = cq.get("from", {}).get("id")
+        cb = (cq.get("data") or "").strip()
+        tg_api("answerCallbackQuery", callback_query_id=cq.get("id"))
+        if not tg_is_admin(uid):
+            return jsonify(ok=True)
+        st = bot_state(uid)
+        if cb.startswith("price:"):
+            pid = int(cb.split(":")[1])
+            st.step = "wait_price"
+            st.product_id = pid
+            db.session.commit()
+            tg_api("sendMessage", chat_id=chat_id, text="💰 Пришлите цену числом (например 250):")
+        elif cb.startswith("rename:"):
+            pid = int(cb.split(":")[1])
+            st.step = "wait_rename"
+            st.product_id = pid
+            db.session.commit()
+            tg_api("sendMessage", chat_id=chat_id, text="✏️ Пришлите новое название товара:")
+        elif cb.startswith("del:"):
+            pid = int(cb.split(":")[1])
+            p = db.session.get(Product, pid)
+            if p:
+                name = p.name
+                db.session.delete(p)
+                db.session.commit()
+                st.step = "idle"
+                st.product_id = None
+                db.session.commit()
+                tg_api("sendMessage", chat_id=chat_id, text=f"🗑 Удалён: {name}")
+            send_next_pending(chat_id, after_id=pid)
+        elif cb.startswith("next:"):
+            pid = int(cb.split(":")[1])
+            st.step = "idle"
+            db.session.commit()
+            send_next_pending(chat_id, after_id=pid)
+        elif cb.startswith("publish:"):
+            pid = int(cb.split(":")[1])
+            p = db.session.get(Product, pid)
+            if p and p.price > 0:
+                p.in_stock = True
+                db.session.commit()
+                tg_api("sendMessage", chat_id=chat_id, text=f"✅ «{p.name}» в каталоге за {p.price:,.0f} сом".replace(",", " "))
+            elif p:
+                tg_api("sendMessage", chat_id=chat_id, text="Сначала укажите цену (кнопка «Цена»).")
+            send_next_pending(chat_id, after_id=pid)
+        return jsonify(ok=True)
+
+    msg = data.get("message") or data.get("edited_message") or {}
+    chat = msg.get("chat") or {}
+    chat_id = chat.get("id")
+    uid = (msg.get("from") or {}).get("id")
+    if not chat_id or not uid:
+        return jsonify(ok=True)
+    if not tg_is_admin(uid):
+        tg_api("sendMessage", chat_id=chat_id, text="⛔ Нет доступа. Добавьте свой ID в TELEGRAM_ADMIN_IDS.")
+        return jsonify(ok=True)
+
+    text_msg = (msg.get("text") or "").strip()
+    st = bot_state(uid)
+
+    if text_msg in ("/start", "/help"):
+        st.step = "idle"
+        db.session.commit()
+        tg_api(
+            "sendMessage",
+            chat_id=chat_id,
+            text=(
+                "👋 Бот магазина «Мир канцелярии»\n\n"
+                "/tovary — товары по очереди (цена / имя / удалить)\n"
+                "Пришлите <b>фото</b> — новый товар в очередь\n\n"
+                "На каждом товаре кнопки:\n"
+                "💰 Цена · ✏️ Имя · 🗑 Удалить · ⏭ Далее · ✅ В каталог"
+            ),
+            parse_mode="HTML",
+        )
+        return jsonify(ok=True)
+
+    if text_msg in ("/tovary", "/queue", "/next"):
+        st.step = "idle"
+        db.session.commit()
+        send_next_pending(chat_id)
+        return jsonify(ok=True)
+
+    # waiting price
+    if st.step == "wait_price" and st.product_id:
+        raw = text_msg.replace(" ", "").replace(",", ".")
+        try:
+            price = float(raw)
+            if price < 0:
+                raise ValueError
+        except ValueError:
+            tg_api("sendMessage", chat_id=chat_id, text="Нужно число, например: 150")
+            return jsonify(ok=True)
+        p = db.session.get(Product, st.product_id)
+        if p:
+            p.price = price
+            p.in_stock = True
+            db.session.commit()
+            tg_api(
+                "sendMessage",
+                chat_id=chat_id,
+                text=f"✅ «{p.name}» — {price:,.0f} сом, выложен в каталог.".replace(",", " "),
+            )
+        st.step = "idle"
+        pid = st.product_id
+        st.product_id = None
+        db.session.commit()
+        send_next_pending(chat_id, after_id=pid)
+        return jsonify(ok=True)
+
+    # waiting rename
+    if st.step == "wait_rename" and st.product_id:
+        if not text_msg:
+            tg_api("sendMessage", chat_id=chat_id, text="Пришлите название текстом.")
+            return jsonify(ok=True)
+        p = db.session.get(Product, st.product_id)
+        if p:
+            p.name = text_msg[:200]
+            db.session.commit()
+            tg_api("sendMessage", chat_id=chat_id, text=f"✏️ Новое имя: {p.name}")
+            send_product_card(chat_id, p)
+        st.step = "idle"
+        st.product_id = None
+        db.session.commit()
+        return jsonify(ok=True)
+
+    # photo -> new product draft
+    photos = msg.get("photo") or []
+    if photos:
+        # largest photo
+        file_id = photos[-1]["file_id"]
+        fi = tg_api("getFile", file_id=file_id)
+        fp = (fi.get("result") or {}).get("file_path")
+        local_url = ""
+        if fp:
+            try:
+                r = requests.get(f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{fp}", timeout=60)
+                if r.ok:
+                    ext = fp.rsplit(".", 1)[-1].lower() if "." in fp else "jpg"
+                    if ext not in ALLOWED_EXT:
+                        ext = "jpg"
+                    name = f"{uuid.uuid4().hex}.{ext}"
+                    with open(os.path.join(UPLOAD, name), "wb") as f:
+                        f.write(r.content)
+                    local_url = "/uploads/" + name
+            except Exception as e:
+                print("photo save", e)
+        p = Product(
+            name="Новый товар",
+            description="",
+            price=0,
+            image_url=local_url,
+            in_stock=False,
+        )
+        db.session.add(p)
+        db.session.commit()
+        st.step = "wait_rename"
+        st.product_id = p.id
+        db.session.commit()
+        tg_api(
+            "sendMessage",
+            chat_id=chat_id,
+            text="📷 Товар создан (черновик). Пришлите <b>название</b>:",
+            parse_mode="HTML",
+        )
+        return jsonify(ok=True)
+
+    # wait name after photo already handled as wait_rename
+    if text_msg:
+        tg_api(
+            "sendMessage",
+            chat_id=chat_id,
+            text="Команды: /tovary — очередь товаров. Или пришлите фото нового товара.",
+        )
+    return jsonify(ok=True)
+
+
+@app.route("/admin/bot/setup", methods=["POST", "GET"])
+@admin_required
+def admin_bot_setup():
+    """Ставит webhook на этот сайт. SITE_URL или авто из request."""
+    base = os.environ.get("SITE_URL", "").rstrip("/") or request.url_root.rstrip("/")
+    url = base + "/telegram-webhook"
+    r = tg_api("setWebhook", url=url)
+    flash(f"Webhook: {url} → {r}", "success" if r.get("ok") else "danger")
+    return redirect(url_for("admin_dashboard"))
+
 
 
 if __name__ == "__main__":
