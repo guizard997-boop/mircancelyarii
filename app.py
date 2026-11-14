@@ -800,21 +800,21 @@ def admin_payment_delete(pid):
 def admin_seed_demo():
     """Добавить демо-товары с фото (если их ещё нет по имени)."""
     demo = [
-        ("Набор гелевых ручек 12 шт", "Письменные принадлежности", 180,
+        ("Гелевые ручки 12 шт", "Письменные принадлежности", 180,
          "Яркий набор гелевых ручек для школы и заметок.", "pens.jpg"),
         ("Скетчбук А5 на пружине", "Тетради и блокноты", 250,
          "Плотная бумага, удобен для набросков.", "notebook.jpg"),
-        ("Набор маркеров 6 цветов", "Для творчества", 320,
+        ("Маркеры 6 цветов", "Для творчества", 320,
          "Акриловые маркеры, насыщенный цвет.", "markers.jpg"),
         ("Рюкзак школьный", "Рюкзаки и сумки", 1890,
          "Лёгкий рюкзак с отделением для тетрадей.", "backpack.jpg"),
-        ("Набор карандашей HB–6B", "Карандаши и грифели", 150,
+        ("Карандаши HB–6B", "Карандаши и грифели", 150,
          "Графитные карандаши для учёбы и рисования.", "pencils.jpg"),
         ("Степлер металлический", "Офисные товары", 220,
          "Надёжный степлер для бумаги.", "stapler.jpg"),
-        ("Набор красок гуашь 12 цв", "Краски и кисти", 280,
+        ("Краски гуашь 12 цв", "Краски и кисти", 280,
          "Гуашь для ИЗО и творчества.", "paints.jpg"),
-        ("Стикеры-закладки набор", "Стикеры и закладки", 90,
+        ("Стикеры-закладки", "Стикеры и закладки", 90,
          "Клейкие закладки разных цветов.", "sticky.jpg"),
     ]
     added = 0
@@ -869,28 +869,28 @@ with app.app_context():
         # демо-товары с фото (один раз, если каталог пуст)
         if Product.query.count() == 0:
             demo = [
-                ("Набор гелевых ручек 12 шт", "Письменные принадлежности", 180,
+                ("Гелевые ручки 12 шт", "Письменные принадлежности", 180,
                  "Яркий набор гелевых ручек для школы и заметок. Пишут мягко, не мажутся.",
                  "pens.jpg"),
                 ("Скетчбук А5 на пружине", "Тетради и блокноты", 250,
                  "Плотная бумага 120 г/м², удобен для набросков и ежедневных записей.",
                  "notebook.jpg"),
-                ("Набор маркеров 6 цветов", "Для творчества", 320,
+                ("Маркеры 6 цветов", "Для творчества", 320,
                  "Акриловые маркеры для бумаги, дерева и пластика. Насыщенный цвет.",
                  "markers.jpg"),
                 ("Рюкзак школьный", "Рюкзаки и сумки", 1890,
                  "Лёгкий рюкзак с отделением для тетрадей и карманом для бутылки.",
                  "backpack.jpg"),
-                ("Набор карандашей HB–6B", "Карандаши и грифели", 150,
+                ("Карандаши HB–6B", "Карандаши и грифели", 150,
                  "Графитные карандаши разной мягкости для учёбы и рисования.",
                  "pencils.jpg"),
                 ("Степлер металлический", "Офисные товары", 220,
                  "Надёжный степлер для бумаги, скобы №24/6 в комплекте не входят.",
                  "stapler.jpg"),
-                ("Набор красок гуашь 12 цв", "Краски и кисти", 280,
+                ("Краски гуашь 12 цв", "Краски и кисти", 280,
                  "Гуашь для уроков ИЗО и творчества дома. Яркие цвета, удобные баночки.",
                  "paints.jpg"),
-                ("Стикеры-закладки набор", "Стикеры и закладки", 90,
+                ("Стикеры-закладки", "Стикеры и закладки", 90,
                  "Клейкие закладки разных цветов для учебников и документов.",
                  "sticky.jpg"),
             ]
@@ -906,27 +906,42 @@ with app.app_context():
                 ))
             db.session.commit()
             print("demo products seeded")
-        # Сохраняем каталог из репозитория и добавляем позиции без удаления существующих товаров.
-        existing_catalog_images = {
-            p.image_url for p in Product.query.filter(Product.image_url.like("/static/img/catalog/%")).all()
-        }
+        # Каталог закреплён в catalog_seed.py: синхронизируем карточки по image_url,
+        # чтобы деплой не стирал товары и не возвращал старые названия.
         catalog_added = 0
+        catalog_updated = 0
         for item in CATALOG_PRODUCTS:
-            if item["image_url"] in existing_catalog_images:
-                continue
+            product = Product.query.filter_by(image_url=item["image_url"]).first()
             category = Category.query.filter_by(name=item["category"]).first()
-            db.session.add(Product(
-                name=item["name"],
-                description=item["description"],
-                price=0,
-                image_url=item["image_url"],
-                category_id=category.id if category else None,
-                in_stock=True,
-            ))
-            catalog_added += 1
-        if catalog_added:
+            if not category:
+                category = Category(name=item["category"])
+                db.session.add(category)
+                db.session.flush()
+            if product is None:
+                product = Product(
+                    name=item["name"],
+                    description=item["description"],
+                    price=item.get("price", 0),
+                    image_url=item["image_url"],
+                    category_id=category.id,
+                    in_stock=True,
+                )
+                db.session.add(product)
+                catalog_added += 1
+            else:
+                changed = (
+                    product.name != item["name"]
+                    or product.description != item["description"]
+                    or product.category_id != category.id
+                )
+                if changed:
+                    product.name = item["name"]
+                    product.description = item["description"]
+                    product.category_id = category.id
+                    catalog_updated += 1
+        if catalog_added or catalog_updated:
             db.session.commit()
-            print(f"catalog products seeded: {catalog_added}")
+            print(f"catalog synced: added={catalog_added}, updated={catalog_updated}")
     except Exception as e:
         print("init", e)
 
