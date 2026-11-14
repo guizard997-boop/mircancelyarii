@@ -286,7 +286,7 @@ def uploaded(filename):
 
 @app.route("/")
 def index():
-    products = Product.query.filter_by(in_stock=True).order_by(Product.created_at.desc()).limit(8).all()
+    products = Product.query.filter(Product.in_stock.is_(True)).order_by(Product.created_at.desc()).limit(8).all()
     categories = Category.query.order_by(Category.name).all()
     return render_template("index.html", products=products, categories=categories)
 
@@ -299,7 +299,7 @@ def catalog():
         session["admin"] = True
         return redirect(url_for("admin_dashboard"))
     cat_id = request.args.get("category", type=int)
-    query = Product.query
+    query = Product.query.filter(Product.in_stock.is_(True))
     if q:
         query = query.filter(Product.name.ilike(f"%{q}%"))
     if cat_id:
@@ -498,12 +498,16 @@ def admin_product_form(pid=None):
         if cat_id:
             cat_id = int(cat_id)
         img = save_upload(request.files.get("image"))
+        # checkbox: если нет в форме при создании — считаем «в наличии»
+        in_stock = request.form.get("in_stock") == "1" if product else (
+            request.form.get("in_stock", "1") == "1"
+        )
         if product:
             product.name = name
             product.price = price
             product.description = request.form.get("description", "").strip()
             product.category_id = cat_id
-            product.in_stock = bool(request.form.get("in_stock"))
+            product.in_stock = request.form.get("in_stock") == "1"
             if img:
                 product.image_url = img
         else:
@@ -513,7 +517,7 @@ def admin_product_form(pid=None):
                 description=request.form.get("description", "").strip(),
                 category_id=cat_id,
                 image_url=img or "",
-                in_stock=bool(request.form.get("in_stock")),
+                in_stock=in_stock,
             )
             db.session.add(product)
         db.session.commit()
@@ -789,6 +793,53 @@ def admin_payment_delete(pid):
     return redirect(url_for("admin_payments"))
 
 
+
+
+@app.route("/admin/seed-demo", methods=["POST", "GET"])
+@admin_required
+def admin_seed_demo():
+    """Добавить демо-товары с фото (если их ещё нет по имени)."""
+    demo = [
+        ("Набор гелевых ручек 12 шт", "Письменные принадлежности", 180,
+         "Яркий набор гелевых ручек для школы и заметок.", "pens.jpg"),
+        ("Скетчбук А5 на пружине", "Тетради и блокноты", 250,
+         "Плотная бумага, удобен для набросков.", "notebook.jpg"),
+        ("Набор маркеров 6 цветов", "Для творчества", 320,
+         "Акриловые маркеры, насыщенный цвет.", "markers.jpg"),
+        ("Рюкзак школьный", "Рюкзаки и сумки", 1890,
+         "Лёгкий рюкзак с отделением для тетрадей.", "backpack.jpg"),
+        ("Набор карандашей HB–6B", "Карандаши и грифели", 150,
+         "Графитные карандаши для учёбы и рисования.", "pencils.jpg"),
+        ("Степлер металлический", "Офисные товары", 220,
+         "Надёжный степлер для бумаги.", "stapler.jpg"),
+        ("Набор красок гуашь 12 цв", "Краски и кисти", 280,
+         "Гуашь для ИЗО и творчества.", "paints.jpg"),
+        ("Стикеры-закладки набор", "Стикеры и закладки", 90,
+         "Клейкие закладки разных цветов.", "sticky.jpg"),
+    ]
+    added = 0
+    for name, cat_name, price, desc, img in demo:
+        if Product.query.filter_by(name=name).first():
+            continue
+        cat = Category.query.filter_by(name=cat_name).first()
+        if not cat:
+            cat = Category(name=cat_name)
+            db.session.add(cat)
+            db.session.flush()
+        db.session.add(Product(
+            name=name,
+            description=desc,
+            price=price,
+            image_url=f"/static/img/products/{img}",
+            category_id=cat.id,
+            in_stock=True,
+        ))
+        added += 1
+    db.session.commit()
+    flash(f"Добавлено товаров: {added}", "success")
+    return redirect(url_for("admin_products"))
+
+
 @app.route("/health")
 def health():
     return jsonify(ok=True, site=SITE_NAME)
@@ -855,7 +906,7 @@ with app.app_context():
                 ))
             db.session.commit()
             print("demo products seeded")
-        # Каталог товаров сохраняется из catalog_seed.py и добавляется без удаления существующих позиций.
+        # Сохраняем каталог из репозитория и добавляем позиции без удаления существующих товаров.
         existing_catalog_images = {
             p.image_url for p in Product.query.filter(Product.image_url.like("/static/img/catalog/%")).all()
         }
