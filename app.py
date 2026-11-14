@@ -906,8 +906,8 @@ with app.app_context():
                 ))
             db.session.commit()
             print("demo products seeded")
-        # Каталог закреплён в catalog_seed.py: синхронизируем карточки по image_url,
-        # чтобы деплой не стирал товары и не возвращал старые названия.
+        # Полный снимок всех карточек хранится в catalog_seed.py; изображения — в Git.
+        # При каждом старте восстанавливаем товары и синхронизируем все поля.
         catalog_added = 0
         catalog_updated = 0
         for item in CATALOG_PRODUCTS:
@@ -933,11 +933,15 @@ with app.app_context():
                     product.name != item["name"]
                     or product.description != item["description"]
                     or product.category_id != category.id
+                    or product.price != item.get("price", 0)
+                    or product.in_stock != item.get("in_stock", True)
                 )
                 if changed:
                     product.name = item["name"]
                     product.description = item["description"]
                     product.category_id = category.id
+                    product.price = item.get("price", 0)
+                    product.in_stock = item.get("in_stock", True)
                     catalog_updated += 1
         if catalog_added or catalog_updated:
             db.session.commit()
